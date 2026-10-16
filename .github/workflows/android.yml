@@ -1,0 +1,60 @@
+# Builds the Android app (android/) and, on main, publishes it as the "android-latest"
+# release so the APK has one stable download link for sideloading.
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Optional. With these secrets every build is signed with the same key, so new
+      # versions install over the old one. Without them each build gets a throwaway key.
+      ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Decode signing key
+        if: env.ANDROID_KEYSTORE != ''
+        run: echo "$ANDROID_KEYSTORE" | base64 --decode > android/app/release.keystore
+
+      - name: Build APK
+        run: gradle --no-daemon -p android assembleRelease
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk habit-checker.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: habit-checker-apk
+          path: habit-checker.apk
+
+      - name: Publish release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest habit-checker.apk \
+            --target "$GITHUB_SHA" \
+            --title "Android app (build $GITHUB_RUN_NUMBER)" \
+            --notes "Habit Checker for Android with the open habits home screen widget. Download habit-checker.apk on your phone and open it to install."

@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// A sideloaded APK only installs over the previous one when both are signed with the same
+// key. CI decodes the ANDROID_KEYSTORE secret to this file; without it the build falls back
+// to a throwaway debug key, and updating means uninstalling first.
+def keystore = file('release.keystore')
+
+android {
+    namespace 'io.github.tmerello1.habitchecker'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.tmerello1.habitchecker'
+        minSdk 26
+        targetSdk 34
+        // Each CI build gets a higher version, so a new APK installs over the old one.
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName "1.${System.getenv('GITHUB_RUN_NUMBER') ?: '0'}"
+    }
+
+    signingConfigs {
+        if (keystore.exists()) {
+            sideload {
+                storeFile keystore
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'habit-checker'
+                keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystore.exists() ? signingConfigs.sideload : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

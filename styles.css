@@ -120,10 +120,14 @@ input[name=name] { flex: 1; min-width: 0; }
 .days legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .days label { display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .time { flex: 1; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-button[type=submit], #enable-reminders, #install {
+button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
   font: inherit; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer;
 }
 #enable-reminders, #install { width: 100%; margin-bottom: 16px; }
+.move { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.move p { margin: 0; }
+.move textarea { font: 13px/1.4 ui-monospace, monospace; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
+#import-btn.armed { background: #dc2626; }
 .note {
   margin: 0 0 16px; padding: 10px 12px; font-size: 14px; color: var(--muted);
   background: var(--card); border: 1px dashed var(--border); border-radius: 8px;
