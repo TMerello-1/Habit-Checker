@@ -55,7 +55,20 @@ main {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-section { margin-bottom: 24px; }
+section, .fold { margin-bottom: 24px; }
+.fold > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after {
+  content: ''; margin-left: auto; width: 8px; height: 8px; flex: none;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform 0.2s;
+}
+.fold[open] > summary::after { transform: rotate(-135deg); }
+.fold > summary h2 { margin: 0; padding-block: 6px; }
+.fold[open] > summary { margin-bottom: 8px; }
 h2 { font-size: 17px; margin: 0 0 8px; }
 h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
 

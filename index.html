@@ -36,8 +36,8 @@
       <ul id="badges" class="badges"></ul>
     </section>
 
-    <section>
-      <h2 id="form-title">New habit</h2>
+    <details id="form-section" class="fold">
+      <summary><h2 id="form-title">New habit</h2></summary>
       <form id="add-form">
         <div class="row">
           <input type="hidden" name="emoji" value="✅">
@@ -64,12 +64,12 @@
           <button type="submit">Add habit</button>
         </div>
       </form>
-    </section>
+    </details>
 
-    <section>
-      <h2>All habits</h2>
+    <details id="all-section" class="fold">
+      <summary><h2>All habits <small id="all-count"></small></h2></summary>
       <ul id="all" class="list"></ul>
-    </section>
+    </details>
   </main>
 
   <div id="toast" role="status" aria-live="polite"></div>

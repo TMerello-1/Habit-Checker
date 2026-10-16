@@ -6,7 +6,7 @@ import { dateKey, WEEKDAYS } from './dates.js';
 import { currentStreak, dueToday, editHabit, isDone, rewards, STREAK_MILESTONES } from './habits.js';
 import { installPlatform, installSteps } from './install.js';
 import { dueReminders, notify, requestPermission } from './reminders.js';
-import { load, save } from './store.js';
+import { load, loadOpenSections, save, saveOpenSections } from './store.js';
 
 let state = load();
 const $ = (sel) => document.querySelector(sel);
@@ -54,6 +54,7 @@ function render() {
     }),
   );
 
+  $('#all-count').textContent = habits.length ? `${habits.length}` : 'None yet';
   $('#all').replaceChildren(
     ...habits.map((h) => {
       const li = document.createElement('li');
@@ -156,6 +157,17 @@ $('#emoji-btn').onclick = () => showPicker($('#emoji-picker').hidden);
 $('#emoji-custom').oninput = (e) => pickEmoji(e.target.value.trim() || '✅');
 pickEmoji('✅');
 
+// "New habit" and "All habits" are <details> sections that start collapsed and
+// remember whether they were left open on this device.
+const openSections = loadOpenSections();
+for (const el of document.querySelectorAll('details.fold')) {
+  el.open = Boolean(openSections[el.id]);
+  el.addEventListener('toggle', () => {
+    openSections[el.id] = el.open;
+    saveOpenSections(openSections);
+  });
+}
+
 // The same form adds new habits and edits existing ones. `editing` is the id of
 // the habit being edited, or null when adding.
 let editing = null;
@@ -170,6 +182,7 @@ function startEdit(habit) {
   $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
   showPicker(false);
   setFormMode();
+  $('#form-section').open = true;
   render();
   $('#form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
   form.elements.name.focus({ preventScroll: true });
