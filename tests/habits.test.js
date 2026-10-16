@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentStreak, longestStreak, rewards } from '../src/habits.js';
+import { currentStreak, editHabit, longestStreak, rewards } from '../src/habits.js';
 
 // 2026-10-12 is a Monday.
 const day = (d) => new Date(2026, 9, d);
@@ -39,4 +39,33 @@ test('rewards give points per check-in plus milestone badges', () => {
   assert.equal(r.checkins, 3);
   assert.equal(r.badges.length, 1);
   assert.equal(r.points, 3 * 10 + 50);
+});
+
+test('editing keeps id, createdAt and streak', () => {
+  const c = { a: ['2026-10-10', '2026-10-11', '2026-10-12'] };
+  const edited = editHabit(daily, { name: 'Jog', emoji: '🚶', days: daily.days, time: '07:00', id: 'x' }, day(12));
+  assert.equal(edited.id, 'a');
+  assert.equal(edited.createdAt, '2026-10-01');
+  assert.equal(edited.name, 'Jog');
+  assert.equal(edited.pastDays, undefined);
+  assert.equal(currentStreak(edited, c, day(12)), 3);
+});
+
+test('changing days applies from today and leaves past days alone', () => {
+  // MWF habit done Wed 7, Fri 9, Mon 12. Switching to daily on Tue 13 must not
+  // count the old Tue/Thu/weekend as misses.
+  const c = { b: ['2026-10-07', '2026-10-09', '2026-10-12'] };
+  const edited = editHabit(mwf, { days: daily.days }, day(13));
+  assert.deepEqual(edited.pastDays, [{ until: '2026-10-13', days: [1, 3, 5] }]);
+  assert.equal(currentStreak(edited, c, day(13)), 3);
+  assert.equal(longestStreak(edited, c, day(13)), 3);
+  // From today on the new days count: missing Tue 13 breaks it on Wed 14.
+  assert.equal(currentStreak(edited, c, day(14)), 0);
+});
+
+test('editing days twice in one day keeps the original past schedule', () => {
+  const once = editHabit(mwf, { days: daily.days }, day(13));
+  const twice = editHabit(once, { days: [2, 4] }, day(13));
+  assert.deepEqual(twice.days, [2, 4]);
+  assert.deepEqual(twice.pastDays, [{ until: '2026-10-13', days: [1, 3, 5] }]);
 });
