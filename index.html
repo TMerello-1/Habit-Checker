@@ -35,7 +35,7 @@
     </section>
 
     <section>
-      <h2>New habit</h2>
+      <h2 id="form-title">New habit</h2>
       <form id="add-form">
         <div class="row">
           <input type="hidden" name="emoji" value="✅">
@@ -58,6 +58,7 @@
         </fieldset>
         <div class="row">
           <label class="time">Remind me at <input type="time" name="time"></label>
+          <button type="button" id="cancel-edit" class="cancel" hidden>Cancel</button>
           <button type="submit">Add habit</button>
         </div>
       </form>

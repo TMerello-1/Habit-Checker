@@ -81,6 +81,16 @@ function cleanDone(done) {
   return out;
 }
 
+// A reminder already sent today stays sent, unless its time was changed since.
+function keptNotified(previous, habits) {
+  const out = {};
+  for (const h of habits) {
+    const old = previous?.habits.find((p) => p.id === h.id);
+    if (old && old.time === h.time && previous.notified[h.id]) out[h.id] = previous.notified[h.id];
+  }
+  return out;
+}
+
 async function subscribe(request, env) {
   const body = await request.json().catch(() => null);
   const habits = cleanHabits(body?.habits);
@@ -95,7 +105,7 @@ async function subscribe(request, env) {
     timeZone: body.timeZone,
     habits,
     done: cleanDone(body.done),
-    notified: previous?.notified || {},
+    notified: keptNotified(previous, habits),
     updatedAt: new Date().toISOString(),
   };
   await env.SUBS.put(`sub:${id}`, JSON.stringify(record));

@@ -97,6 +97,16 @@ test('subscribe stores the schedule, the cron sends once, then stays quiet', asy
   assert.equal(await runReminders(env, new Date('2026-10-12T12:05:00Z')), 0);
 });
 
+test('changing a reminder time lets it fire again the same day', async () => {
+  const { env, post } = await setup();
+  await post('/subscribe', { subscription, timeZone: 'America/New_York', habits: [habit], done: {} });
+  const calls = mockPushService(201);
+  await runReminders(env, mondayNY);
+  await post('/subscribe', { subscription, timeZone: 'America/New_York', habits: [{ ...habit, time: '09:00' }], done: {} });
+  await runReminders(env, new Date('2026-10-12T13:01:00Z'));
+  assert.equal(calls.length, 2);
+});
+
 test('a checked-off habit gets no push', async () => {
   const { env, post } = await setup();
   await post('/subscribe', { subscription, timeZone: 'America/New_York', habits: [habit], done: { a: '2026-10-12' } });
