@@ -18,5 +18,3 @@ export function addDays(date, n) {
   copy.setDate(copy.getDate() + n);
   return copy;
 }
-
-export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

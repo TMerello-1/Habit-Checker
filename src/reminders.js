@@ -4,6 +4,7 @@
 
 import { dateKey } from './dates.js';
 import { isDone, isScheduled } from './habits.js';
+import { t } from './i18n.js';
 
 // Habits whose reminder time has passed today, that aren't done and weren't already notified.
 export function dueReminders(state, now = new Date()) {
@@ -27,8 +28,8 @@ export async function requestPermission() {
 export async function notify(habit) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const reg = await navigator.serviceWorker?.ready;
-  const title = `${habit.emoji} Time for: ${habit.name}`;
-  const options = { body: 'Keep your streak going!', tag: habit.id, icon: 'icons/icon.svg' };
+  const title = t('reminderTitle', { emoji: habit.emoji, name: habit.name });
+  const options = { body: t('reminderBody'), tag: habit.id, icon: 'icons/icon.svg' };
   if (reg) reg.showNotification(title, options);
   else new Notification(title, options);
 }

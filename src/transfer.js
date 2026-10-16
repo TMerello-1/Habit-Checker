@@ -1,6 +1,8 @@
 // Moving habits between installs: the PWA in a browser and the Android app each keep
 // their own localStorage, so data is carried across as copied text.
 
+import { t } from './i18n.js';
+
 const FORMAT = 'habit-checker';
 
 export function exportData(state) {
@@ -14,16 +16,16 @@ export function parseImport(text) {
   try {
     data = JSON.parse(String(text).trim());
   } catch {
-    throw new Error("That doesn't look like copied Habit Checker data.");
+    throw new Error(t('notData'));
   }
   if (data?.format !== FORMAT || !Array.isArray(data.habits) || !isObject(data.completions)) {
-    throw new Error("That doesn't look like copied Habit Checker data.");
+    throw new Error(t('notData'));
   }
-  if (data.version > 1) throw new Error('That data is from a newer version. Update this app first.');
+  if (data.version > 1) throw new Error(t('newerData'));
   const valid = data.habits.every(
     (h) => isObject(h) && typeof h.id === 'string' && typeof h.name === 'string' && Array.isArray(h.days) && typeof h.createdAt === 'string',
   );
-  if (!valid) throw new Error('Some habits in that data are damaged, so nothing was imported.');
+  if (!valid) throw new Error(t('damagedData'));
   return { habits: data.habits, completions: data.completions };
 }
 
