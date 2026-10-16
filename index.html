@@ -70,6 +70,16 @@
       <summary><h2>All habits <small id="all-count"></small></h2></summary>
       <ul id="all" class="list"></ul>
     </details>
+
+    <details id="move-section" class="fold">
+      <summary><h2>Move your data</h2></summary>
+      <div class="move">
+        <p class="muted">Copy your habits, streaks and points here, then paste them into the Android app or another browser.</p>
+        <button type="button" id="copy-data">📋 Copy my data</button>
+        <textarea id="import-data" rows="3" placeholder="Paste copied data here" aria-label="Data to import"></textarea>
+        <button type="button" id="import-btn">Replace my data with this</button>
+      </div>
+    </details>
   </main>
 
   <dialog id="confirm-done" class="confirm" aria-labelledby="confirm-title">

@@ -7,6 +7,7 @@ import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, STREAK_
 import { installPlatform, installSteps } from './install.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { load, loadOpenSections, save, saveOpenSections } from './store.js';
+import { exportData, parseImport } from './transfer.js';
 
 let state = load();
 const $ = (sel) => document.querySelector(sel);
@@ -107,18 +108,22 @@ function render() {
   );
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
-  $('#enable-reminders').hidden = perm !== 'default' || embedded;
+  $('#enable-reminders').hidden = perm !== 'default' || embedded || androidApp;
   $('#reminder-note').hidden = !reminderNote(perm);
   $('#reminder-note').textContent = reminderNote(perm);
 
   // Offer installing until the app runs from the home screen.
-  $('#install').hidden = installed() || embedded;
+  $('#install').hidden = installed() || embedded || androidApp;
   if ($('#install').hidden) $('#install-help').hidden = true;
 }
 
 // Explain why reminders are off instead of silently hiding the button.
 const embedded = window.self !== window.top;
+// The Android app (android/) loads this site in a WebView, tags its user agent, and
+// shows reminders and the home screen widget natively from the saved state.
+const androidApp = navigator.userAgent.includes('HabitCheckerAndroid');
 function reminderNote(perm) {
+  if (androidApp) return '';
   if (embedded || perm === 'unsupported' || !('serviceWorker' in navigator)) {
     return 'Reminders are off in this preview. They need the installed app.';
   }
@@ -290,6 +295,47 @@ $('#install').onclick = async () => {
   const help = $('#install-help');
   help.textContent = installSteps(installPlatform(navigator.userAgent, navigator.maxTouchPoints));
   help.hidden = !help.hidden;
+};
+
+// "Move your data": copy the state out as text, or replace it with pasted text.
+// Replacing asks for a second tap, like delete, since it overwrites everything here.
+$('#copy-data').onclick = async () => {
+  const text = exportData(state);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied. Now paste it in the other app.');
+  } catch {
+    // No clipboard access: put the text in the box to copy by hand.
+    $('#import-data').value = text;
+    $('#import-data').select();
+    toast('Select and copy the text in the box.');
+  }
+};
+
+$('#import-btn').onclick = (e) => {
+  const btn = e.currentTarget;
+  let data;
+  try {
+    data = parseImport($('#import-data').value);
+  } catch (err) {
+    return toast(err.message);
+  }
+  if (!btn.classList.contains('armed') && state.habits.length) {
+    btn.classList.add('armed');
+    btn.textContent = `Replace your ${state.habits.length} habit${state.habits.length === 1 ? '' : 's'}?`;
+    setTimeout(() => {
+      btn.classList.remove('armed');
+      btn.textContent = 'Replace my data with this';
+    }, 3000);
+    return;
+  }
+  btn.classList.remove('armed');
+  btn.textContent = 'Replace my data with this';
+  state = { ...state, ...data, notified: {} };
+  $('#import-data').value = '';
+  resetForm();
+  commit();
+  toast(`Imported ${data.habits.length} habit${data.habits.length === 1 ? '' : 's'}`);
 };
 
 function checkReminders() {
