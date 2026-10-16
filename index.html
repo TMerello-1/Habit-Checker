@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Habit Checker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Habit Checker</h1>
+    <div class="score">
+      <span>Level <b id="level">1</b></span>
+      <span><b id="points">0</b> pts</span>
+    </div>
+    <div class="bar"><div id="progress"></div></div>
+  </header>
+
+  <main>
+    <button id="enable-reminders" hidden>🔔 Turn on reminders</button>
+    <p id="reminder-note" class="note" hidden></p>
+
+    <section>
+      <h2>Today <small id="today-summary"></small></h2>
+      <ul id="today" class="list"></ul>
+    </section>
+
+    <section>
+      <h2>Badges</h2>
+      <ul id="badges" class="badges"></ul>
+    </section>
+
+    <section>
+      <h2>New habit</h2>
+      <form id="add-form">
+        <div class="row">
+          <input name="emoji" placeholder="🏃" maxlength="4" class="emoji-input" aria-label="Emoji">
+          <input name="name" placeholder="e.g. Morning run" required aria-label="Habit name">
+        </div>
+        <fieldset class="days">
+          <legend>Days</legend>
+          <label><input type="checkbox" name="days" value="1" checked>Mon</label>
+          <label><input type="checkbox" name="days" value="2" checked>Tue</label>
+          <label><input type="checkbox" name="days" value="3" checked>Wed</label>
+          <label><input type="checkbox" name="days" value="4" checked>Thu</label>
+          <label><input type="checkbox" name="days" value="5" checked>Fri</label>
+          <label><input type="checkbox" name="days" value="6" checked>Sat</label>
+          <label><input type="checkbox" name="days" value="0" checked>Sun</label>
+        </fieldset>
+        <div class="row">
+          <label class="time">Remind me at <input type="time" name="time"></label>
+          <button type="submit">Add habit</button>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <h2>All habits</h2>
+      <ul id="all" class="list"></ul>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+// Pure habit logic: scheduling, streaks and rewards. No DOM or storage access here,
+// so everything in this file is unit-tested under Node (see tests/).
+//
+// Habit shape:
+//   { id, name, emoji, days: [0-6 weekday numbers, 0 = Sunday], time: "HH:MM" | "", createdAt: "YYYY-MM-DD" }
+// Completions shape (kept separately in state):
+//   { [habitId]: ["YYYY-MM-DD", ...] }
+
+import { addDays, dateKey, parseKey } from './dates.js';
+
+export function isScheduled(habit, date) {
+  return habit.days.includes(date.getDay()) && dateKey(date) >= habit.createdAt;
+}
+
+export function isDone(completions, habitId, date) {
+  return (completions[habitId] || []).includes(dateKey(date));
+}
+
+// Consecutive scheduled days completed, counting back from `today`.
+// Unscheduled days are skipped, so a Mon/Wed/Fri habit keeps its streak over the weekend.
+// If today is scheduled but not done yet, the streak is still alive (the user has until midnight).
+export function currentStreak(habit, completions, today = new Date()) {
+  let streak = 0;
+  let day = today;
+  const start = parseKey(habit.createdAt);
+  if (isScheduled(habit, day) && !isDone(completions, habit.id, day)) day = addDays(day, -1);
+  while (day >= start) {
+    if (isScheduled(habit, day)) {
+      if (!isDone(completions, habit.id, day)) break;
+      streak++;
+    }
+    day = addDays(day, -1);
+  }
+  return streak;
+}
+
+export function longestStreak(habit, completions, today = new Date()) {
+  let best = 0;
+  let run = 0;
+  for (let day = parseKey(habit.createdAt); day <= today; day = addDays(day, 1)) {
+    if (!isScheduled(habit, day)) continue;
+    if (isDone(completions, habit.id, day)) {
+      run++;
+      best = Math.max(best, run);
+    } else if (dateKey(day) !== dateKey(today)) {
+      run = 0;
+    }
+  }
+  return best;
+}
+
+export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
+export const POINTS_PER_CHECKIN = 10;
+export const POINTS_PER_MILESTONE = 50;
+
+// Rewards are derived from history every time rather than stored, so un-checking a
+// mistaken tap takes the points back and nothing can drift out of sync.
+export function rewards(habits, completions, today = new Date()) {
+  const badges = [];
+  let checkins = 0;
+  for (const habit of habits) {
+    checkins += (completions[habit.id] || []).length;
+    const best = longestStreak(habit, completions, today);
+    for (const m of STREAK_MILESTONES) {
+      if (best >= m) badges.push({ habitId: habit.id, label: `${habit.emoji} ${m}-day streak`, milestone: m });
+    }
+  }
+  const points = checkins * POINTS_PER_CHECKIN + badges.length * POINTS_PER_MILESTONE;
+  return { points, level: Math.floor(points / 250) + 1, checkins, badges };
+}
+
+export function dueToday(habits, today = new Date()) {
+  return habits.filter((h) => isScheduled(h, today));
+}
