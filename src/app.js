@@ -16,7 +16,22 @@ function commit() {
   render();
 }
 
+// Checking a habit off asks first, so a stray tap or wishful thinking doesn't
+// earn points. Unchecking needs no prompt. An in-page <dialog> rather than
+// confirm(), which the hosted preview blocks.
 function toggle(habit) {
+  if (isDone(state.completions, habit.id, new Date())) return applyToggle(habit);
+  const dlg = $('#confirm-done');
+  $('#confirm-emoji').textContent = habit.emoji;
+  $('#confirm-text').textContent = `Did you really do ${habit.name} today? Don't trick yourself. 😉`;
+  dlg.returnValue = '';
+  dlg.onclose = () => {
+    if (dlg.returnValue === 'ok') applyToggle(habit);
+  };
+  dlg.showModal();
+}
+
+function applyToggle(habit) {
   const today = dateKey();
   const list = state.completions[habit.id] || [];
   const before = currentStreak(habit, state.completions);
@@ -231,6 +246,11 @@ form.onsubmit = (e) => {
   }
   resetForm();
   commit();
+};
+
+// Tapping the dimmed backdrop counts as "Not yet".
+$('#confirm-done').onclick = (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.close();
 };
 
 $('#enable-reminders').onclick = async () => {

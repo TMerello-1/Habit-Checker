@@ -135,3 +135,16 @@ button[type=submit], #enable-reminders, #install {
   opacity: 0; transition: transform 0.25s, opacity 0.25s; pointer-events: none;
 }
 #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+.confirm {
+  width: min(320px, calc(100% - 32px)); padding: 20px; border: none; border-radius: 14px;
+  background: var(--card); color: var(--text); text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.confirm form { margin: 0; padding: 0; border: none; background: none; box-shadow: none; }
+.confirm::backdrop { background: rgba(0, 0, 0, 0.45); }
+.confirm h2 { margin: 0 0 6px; font-size: 20px; }
+.confirm p { margin: 0 0 18px; color: var(--muted); }
+.confirm .confirm-emoji { font-size: 40px; margin: 0 0 4px; color: inherit; }
+.confirm .row { justify-content: center; gap: 8px; }
+.confirm .cancel { font: inherit; padding: 9px 16px; }
