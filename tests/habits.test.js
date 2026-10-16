@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentStreak, editHabit, longestStreak, rewards } from '../src/habits.js';
+import { currentStreak, editHabit, longestStreak, openToday, rewards } from '../src/habits.js';
 
 // 2026-10-12 is a Monday.
 const day = (d) => new Date(2026, 9, d);
@@ -68,4 +68,11 @@ test('editing days twice in one day keeps the original past schedule', () => {
   const twice = editHabit(once, { days: [2, 4] }, day(13));
   assert.deepEqual(twice.days, [2, 4]);
   assert.deepEqual(twice.pastDays, [{ until: '2026-10-13', days: [1, 3, 5] }]);
+});
+
+test('openToday lists scheduled habits not yet done', () => {
+  // Sun 11: the Mon/Wed/Fri habit isn't scheduled, so only the daily one counts.
+  assert.deepEqual(openToday([daily, mwf], {}, day(11)).map((h) => h.id), ['a']);
+  // Mon 12: both scheduled, daily already done.
+  assert.deepEqual(openToday([daily, mwf], { a: ['2026-10-12'] }, day(12)).map((h) => h.id), ['b']);
 });

@@ -32,3 +32,17 @@ export async function notify(habit) {
   if (reg) reg.showNotification(title, options);
   else new Notification(title, options);
 }
+
+// Shows the number of open habits on the installed app's icon. The Badging API works
+// for installed apps on Windows and macOS (Chrome, Edge). Android has no Badging API:
+// its launchers mark the icon only while the app has a notification showing.
+export function setBadge(count) {
+  if (!('setAppBadge' in navigator)) return;
+  (count ? navigator.setAppBadge(count) : navigator.clearAppBadge()).catch(() => {});
+}
+
+// Removes a habit's reminder once it's done, so the Android icon dot goes away with it.
+export async function dismissReminder(habitId) {
+  const reg = await navigator.serviceWorker?.getRegistration();
+  for (const n of (await reg?.getNotifications({ tag: habitId })) || []) n.close();
+}
