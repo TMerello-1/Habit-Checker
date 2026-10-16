@@ -5,7 +5,7 @@ A progressive web app that reminds you of scheduled habits and rewards you for k
 - Add habits with an emoji, the weekdays they're scheduled on, and an optional reminder time.
 - Check them off each day. Streaks (🔥) count only scheduled days, so a Mon/Wed/Fri habit keeps its streak over the weekend.
 - Earn 10 points per check-in, plus badges and 50 bonus points at 3, 7, 14, 30, 60 and 100-day streaks. You level up every 250 points.
-- It works offline and can be installed to the home screen. All data stays in your browser.
+- It works offline and can be installed to the home screen with the "Install app" button. All data stays in your browser.
 
 ## Run it
 

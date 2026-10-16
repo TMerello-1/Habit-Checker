@@ -4,6 +4,7 @@
 
 import { dateKey, WEEKDAYS } from './dates.js';
 import { currentStreak, dueToday, editHabit, isDone, rewards, STREAK_MILESTONES } from './habits.js';
+import { installPlatform, installSteps } from './install.js';
 import { enablePush, pushActive, syncPush } from './push.js';
 import { dueReminders, notify, requestPermission } from './reminders.js';
 import { load, save } from './store.js';
@@ -93,6 +94,10 @@ function render() {
   $('#enable-reminders').hidden = perm !== 'default' || embedded;
   $('#reminder-note').hidden = !reminderNote(perm);
   $('#reminder-note').textContent = reminderNote(perm);
+
+  // Offer installing until the app runs from the home screen.
+  $('#install').hidden = installed() || embedded;
+  if ($('#install').hidden) $('#install-help').hidden = true;
 }
 
 // Explain why reminders are off instead of silently hiding the button.
@@ -221,6 +226,38 @@ $('#enable-reminders').onclick = async () => {
   await requestPermission();
   render();
   enablePush(state);
+};
+
+// Chromium browsers fire beforeinstallprompt once the app is installable; keep it
+// so the button can open the browser's own install dialog. Without it (iPhone,
+// Edge's "Add to phone", Samsung, Firefox) the button shows the menu steps instead.
+let installPrompt = null;
+let justInstalled = false;
+const installed = () =>
+  justInstalled || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+});
+window.addEventListener('appinstalled', () => {
+  justInstalled = true;
+  installPrompt = null;
+  toast('Installed! Open Habit Checker from your home screen.');
+  render();
+});
+
+$('#install').onclick = async () => {
+  if (installPrompt) {
+    const prompt = installPrompt;
+    installPrompt = null; // each event can only prompt once
+    prompt.prompt();
+    await prompt.userChoice;
+    return render();
+  }
+  const help = $('#install-help');
+  help.textContent = installSteps(installPlatform(navigator.userAgent, navigator.maxTouchPoints));
+  help.hidden = !help.hidden;
 };
 
 function checkReminders() {

@@ -25,6 +25,7 @@ Requires Node 22+ (the built-in `node:test` runner). Don't pass a directory to `
 - `src/app.js` is the only file that touches the DOM. Every mutation goes through `commit()`, which saves state and re-renders the whole view. There is no framework and no partial diffing.
 - `src/store.js` keeps the entire app state as one JSON blob in `localStorage` under `habit-checker:v1`: `{ version, habits, completions, notified }`. If the shape changes, bump `version` and migrate in `load()`.
 - `src/reminders.js`: `dueReminders()` is pure and tested. `notify()` shows notifications through the service worker registration. `state.notified[habitId] = "YYYY-MM-DD"` stops a reminder from firing twice in a day.
+- `src/install.js` picks the "Install app" help text per browser (pure, tested). `app.js` uses the browser's `beforeinstallprompt` dialog when Chromium offers one and shows these menu steps otherwise; the button hides once the app runs standalone. Installability depends on the PNG icons in `manifest.webmanifest` (rendered from `icons/icon.svg`).
 - `sw.js` is a cache-first service worker for offline use, and it also handles notification clicks.
 
 ### Key invariants
