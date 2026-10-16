@@ -114,6 +114,42 @@ function toast(msg) {
   toast.t = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
+// Tap-to-choose emoji for new habits. The choice lives in the hidden "emoji"
+// input so the submit handler reads it like any other field.
+const EMOJI = [
+  '✅', '🏃', '🚶', '🚴', '🏊', '🧘', '🏋️', '🤸', '⚽', '🎾',
+  '💧', '🥗', '🍎', '🥦', '☕', '🚭', '💊', '🦷', '😴', '🛏️',
+  '📚', '✍️', '📝', '🧠', '🎓', '💻', '🎨', '🎸', '🎹', '📷',
+  '🧹', '🧺', '🍳', '🌱', '🐶', '💰', '📵', '🙏', '❤️', '📞', '🎯', '🌞',
+];
+const emojiField = $('#add-form').elements.emoji;
+
+function pickEmoji(emoji) {
+  emojiField.value = emoji;
+  $('#emoji-btn').textContent = emoji;
+  for (const b of $('#emoji-grid').children) b.setAttribute('aria-pressed', b.textContent === emoji);
+}
+
+function showPicker(open) {
+  $('#emoji-picker').hidden = !open;
+  $('#emoji-btn').setAttribute('aria-expanded', open);
+}
+
+$('#emoji-grid').replaceChildren(
+  ...EMOJI.map((emoji) => {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: emoji });
+    b.onclick = () => {
+      pickEmoji(emoji);
+      $('#emoji-custom').value = '';
+      showPicker(false);
+    };
+    return b;
+  }),
+);
+$('#emoji-btn').onclick = () => showPicker($('#emoji-picker').hidden);
+$('#emoji-custom').oninput = (e) => pickEmoji(e.target.value.trim() || '✅');
+pickEmoji('✅');
+
 $('#add-form').onsubmit = (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
@@ -129,6 +165,8 @@ $('#add-form').onsubmit = (e) => {
   });
   e.target.reset();
   e.target.querySelectorAll('[name=days]').forEach((c) => (c.checked = true));
+  pickEmoji('✅');
+  showPicker(false);
   commit();
 };
 

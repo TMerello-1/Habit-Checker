@@ -38,8 +38,13 @@
       <h2>New habit</h2>
       <form id="add-form">
         <div class="row">
-          <input name="emoji" placeholder="🏃" maxlength="4" class="emoji-input" aria-label="Emoji">
+          <input type="hidden" name="emoji" value="✅">
+          <button type="button" id="emoji-btn" class="emoji-btn" aria-label="Choose emoji" aria-expanded="false" aria-controls="emoji-picker">✅</button>
           <input name="name" placeholder="e.g. Morning run" required aria-label="Habit name">
+        </div>
+        <div id="emoji-picker" class="emoji-picker" hidden>
+          <div id="emoji-grid" class="emoji-grid" role="group" aria-label="Emoji"></div>
+          <label class="emoji-custom">Or type your own <input id="emoji-custom" maxlength="4" placeholder="🙂" aria-label="Custom emoji"></label>
         </div>
         <fieldset class="days">
           <legend>Days</legend>
