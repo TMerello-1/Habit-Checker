@@ -3,9 +3,9 @@
 // enough that diffing isn't worth it).
 
 import { dateKey, WEEKDAYS } from './dates.js';
-import { currentStreak, dueToday, editHabit, isDone, rewards, STREAK_MILESTONES } from './habits.js';
+import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, STREAK_MILESTONES } from './habits.js';
 import { installPlatform, installSteps } from './install.js';
-import { dueReminders, notify, requestPermission } from './reminders.js';
+import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { load, loadOpenSections, save, saveOpenSections } from './store.js';
 
 let state = load();
@@ -36,6 +36,7 @@ function applyToggle(habit) {
   const list = state.completions[habit.id] || [];
   const before = currentStreak(habit, state.completions);
   state.completions[habit.id] = list.includes(today) ? list.filter((d) => d !== today) : [...list, today];
+  if (!list.includes(today)) dismissReminder(habit.id).catch(() => {});
   const after = currentStreak(habit, state.completions);
   if (after > before) {
     const milestone = STREAK_MILESTONES.find((m) => m === after);
@@ -53,6 +54,7 @@ function render() {
 
   const today = dueToday(habits);
   const done = today.filter((h) => isDone(state.completions, h.id, new Date())).length;
+  setBadge(openToday(habits, state.completions).length);
   $('#today-summary').textContent = today.length ? `${done} of ${today.length} done` : 'Nothing scheduled today';
   $('#today').replaceChildren(
     ...today.map((h) => {
