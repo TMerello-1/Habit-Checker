@@ -85,7 +85,21 @@ form { background: var(--card); border: 1px solid var(--border); border-radius: 
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 input { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
 input[name=name] { flex: 1; min-width: 0; }
-.emoji-input { width: 56px; text-align: center; }
+.emoji-btn {
+  width: 48px; height: 42px; flex: none; font-size: 24px; line-height: 1; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.emoji-btn[aria-expanded="true"] { border-color: var(--accent); }
+.emoji-picker { display: grid; gap: 8px; }
+.emoji-picker[hidden] { display: none; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
+.emoji-grid button {
+  height: 44px; font-size: 24px; line-height: 1; cursor: pointer;
+  border: 2px solid transparent; border-radius: 8px; background: var(--bg);
+}
+.emoji-grid button[aria-pressed="true"] { border-color: var(--accent); }
+.emoji-custom { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.emoji-custom input { width: 64px; text-align: center; }
 .days { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .days legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .days label { display: flex; align-items: center; gap: 4px; font-size: 14px; }
