@@ -14,70 +14,70 @@
   <header>
     <h1>Habit Checker</h1>
     <div class="score">
-      <span>Level <b id="level">1</b></span>
-      <span><b id="points">0</b> pts</span>
+      <span><span data-i18n="level">Level</span> <b id="level">1</b></span>
+      <span><b id="points">0</b> <span data-i18n="pts">pts</span></span>
     </div>
     <div class="bar"><div id="progress"></div></div>
   </header>
 
   <main>
-    <button id="install" hidden>📲 Install app</button>
+    <button id="install" data-i18n="install" hidden>📲 Install app</button>
     <p id="install-help" class="note" hidden></p>
-    <button id="enable-reminders" hidden>🔔 Turn on reminders</button>
+    <button id="enable-reminders" data-i18n="enableReminders" hidden>🔔 Turn on reminders</button>
     <p id="reminder-note" class="note" hidden></p>
 
     <section>
-      <h2>Today <small id="today-summary"></small></h2>
+      <h2><span data-i18n="today">Today</span> <small id="today-summary"></small></h2>
       <ul id="today" class="list"></ul>
     </section>
 
     <section>
-      <h2>Badges</h2>
+      <h2 data-i18n="badges">Badges</h2>
       <ul id="badges" class="badges"></ul>
     </section>
 
     <details id="form-section" class="fold">
-      <summary><h2 id="form-title">New habit</h2></summary>
+      <summary><h2 id="form-title" data-i18n="newHabit">New habit</h2></summary>
       <form id="add-form">
         <div class="row">
           <input type="hidden" name="emoji" value="✅">
-          <button type="button" id="emoji-btn" class="emoji-btn" aria-label="Choose emoji" aria-expanded="false" aria-controls="emoji-picker">✅</button>
-          <input name="name" placeholder="e.g. Morning run" required aria-label="Habit name">
+          <button type="button" id="emoji-btn" class="emoji-btn" data-i18n-aria-label="chooseEmoji" aria-label="Choose emoji" aria-expanded="false" aria-controls="emoji-picker">✅</button>
+          <input name="name" placeholder="e.g. Morning run" required aria-label="Habit name" data-i18n-placeholder="namePlaceholder" data-i18n-aria-label="habitName">
         </div>
         <div id="emoji-picker" class="emoji-picker" hidden>
-          <div id="emoji-grid" class="emoji-grid" role="group" aria-label="Emoji"></div>
-          <label class="emoji-custom">Or type your own <input id="emoji-custom" maxlength="4" placeholder="🙂" aria-label="Custom emoji"></label>
+          <div id="emoji-grid" class="emoji-grid" role="group" aria-label="Emoji" data-i18n-aria-label="emoji"></div>
+          <label class="emoji-custom"><span data-i18n="customEmojiLabel">Or type your own</span> <input id="emoji-custom" maxlength="4" placeholder="🙂" aria-label="Custom emoji" data-i18n-aria-label="customEmoji"></label>
         </div>
         <fieldset class="days">
-          <legend>Days</legend>
-          <label><input type="checkbox" name="days" value="1" checked>Mon</label>
-          <label><input type="checkbox" name="days" value="2" checked>Tue</label>
-          <label><input type="checkbox" name="days" value="3" checked>Wed</label>
-          <label><input type="checkbox" name="days" value="4" checked>Thu</label>
-          <label><input type="checkbox" name="days" value="5" checked>Fri</label>
-          <label><input type="checkbox" name="days" value="6" checked>Sat</label>
-          <label><input type="checkbox" name="days" value="0" checked>Sun</label>
+          <legend data-i18n="days">Days</legend>
+          <label><input type="checkbox" name="days" value="1" checked><span data-i18n-day="1">Mon</span></label>
+          <label><input type="checkbox" name="days" value="2" checked><span data-i18n-day="2">Tue</span></label>
+          <label><input type="checkbox" name="days" value="3" checked><span data-i18n-day="3">Wed</span></label>
+          <label><input type="checkbox" name="days" value="4" checked><span data-i18n-day="4">Thu</span></label>
+          <label><input type="checkbox" name="days" value="5" checked><span data-i18n-day="5">Fri</span></label>
+          <label><input type="checkbox" name="days" value="6" checked><span data-i18n-day="6">Sat</span></label>
+          <label><input type="checkbox" name="days" value="0" checked><span data-i18n-day="0">Sun</span></label>
         </fieldset>
         <div class="row">
-          <label class="time">Remind me at <input type="time" name="time"></label>
-          <button type="button" id="cancel-edit" class="cancel" hidden>Cancel</button>
-          <button type="submit">Add habit</button>
+          <label class="time"><span data-i18n="remindAt">Remind me at</span> <input type="time" name="time"></label>
+          <button type="button" id="cancel-edit" class="cancel" data-i18n="cancel" hidden>Cancel</button>
+          <button type="submit" data-i18n="addHabit">Add habit</button>
         </div>
       </form>
     </details>
 
     <details id="all-section" class="fold">
-      <summary><h2>All habits <small id="all-count"></small></h2></summary>
+      <summary><h2><span data-i18n="allHabits">All habits</span> <small id="all-count"></small></h2></summary>
       <ul id="all" class="list"></ul>
     </details>
 
     <details id="move-section" class="fold">
-      <summary><h2>Move your data</h2></summary>
+      <summary><h2 data-i18n="moveData">Move your data</h2></summary>
       <div class="move">
-        <p class="muted">Copy your habits, streaks and points here, then paste them into the Android app or another browser.</p>
-        <button type="button" id="copy-data">📋 Copy my data</button>
-        <textarea id="import-data" rows="3" placeholder="Paste copied data here" aria-label="Data to import"></textarea>
-        <button type="button" id="import-btn">Replace my data with this</button>
+        <p class="muted" data-i18n="moveIntro">Copy your habits, streaks and points here, then paste them into the Android app or another browser.</p>
+        <button type="button" id="copy-data" data-i18n="copyData">📋 Copy my data</button>
+        <textarea id="import-data" rows="3" placeholder="Paste copied data here" aria-label="Data to import" data-i18n-placeholder="pastePlaceholder" data-i18n-aria-label="importLabel"></textarea>
+        <button type="button" id="import-btn" data-i18n="replaceData">Replace my data with this</button>
       </div>
     </details>
   </main>
@@ -85,11 +85,11 @@
   <dialog id="confirm-done" class="confirm" aria-labelledby="confirm-title">
     <form method="dialog">
       <p class="confirm-emoji" id="confirm-emoji" aria-hidden="true"></p>
-      <h2 id="confirm-title">Are you sure?</h2>
-      <p id="confirm-text">Don't trick yourself. 😉</p>
+      <h2 id="confirm-title" data-i18n="confirmTitle">Are you sure?</h2>
+      <p id="confirm-text" data-i18n="confirmText">Don't trick yourself. 😉</p>
       <div class="row">
-        <button value="cancel" class="cancel">Not yet</button>
-        <button value="ok" type="submit" autofocus>Yes, I did it</button>
+        <button value="cancel" class="cancel" data-i18n="notYet">Not yet</button>
+        <button value="ok" type="submit" data-i18n="yesDone" autofocus>Yes, I did it</button>
       </div>
     </form>
   </dialog>

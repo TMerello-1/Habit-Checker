@@ -1,0 +1,11 @@
+<resources>
+    <string name="widget_name">Offene Gewohnheiten</string>
+    <string name="widget_title">Heute</string>
+    <string name="widget_first_open">Öffne Habit Checker einmal, um deine Gewohnheiten zu laden.</string>
+    <string name="widget_nothing_today">Heute steht nichts an.</string>
+    <string name="widget_all_done">Heute alles erledigt 🎉</string>
+    <string name="widget_count">%1$d von %2$d erledigt</string>
+    <string name="channel_name">Erinnerungen an Gewohnheiten</string>
+    <string name="reminder_title">%1$s Zeit für: %2$s</string>
+    <string name="reminder_body">Bleib an deiner Serie dran!</string>
+</resources>

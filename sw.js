@@ -14,6 +14,7 @@ const ASSETS = [
   'src/app.js',
   'src/dates.js',
   'src/habits.js',
+  'src/i18n.js',
   'src/install.js',
   'src/reminders.js',
   'src/store.js',

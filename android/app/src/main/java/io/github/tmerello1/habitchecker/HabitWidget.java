@@ -35,15 +35,15 @@ public class HabitWidget extends AppWidgetProvider {
         StringBuilder list = new StringBuilder();
         if (state == null) {
             count = "";
-            list.append("Open Habit Checker once to load your habits.");
+            list.append(ctx.getString(R.string.widget_first_open));
         } else if (scheduled == 0) {
             count = "";
-            list.append("Nothing scheduled today.");
+            list.append(ctx.getString(R.string.widget_nothing_today));
         } else if (open.isEmpty()) {
-            count = scheduled + " of " + scheduled + " done";
-            list.append("All done today 🎉");
+            count = ctx.getString(R.string.widget_count, scheduled, scheduled);
+            list.append(ctx.getString(R.string.widget_all_done));
         } else {
-            count = (scheduled - open.size()) + " of " + scheduled + " done";
+            count = ctx.getString(R.string.widget_count, scheduled - open.size(), scheduled);
             for (Habits.Habit h : open) {
                 if (list.length() > 0) list.append('\n');
                 list.append(h.label());

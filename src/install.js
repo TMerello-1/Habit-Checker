@@ -3,6 +3,8 @@
 // Chromium browser that hasn't offered the prompt) we show the menu steps instead.
 // Pure so it can be tested under Node; app.js owns the button.
 
+import { t } from './i18n.js';
+
 export function installPlatform(userAgent, maxTouchPoints = 0) {
   // iPadOS reports a Mac user agent, so a touch-screen "Mac" is an iPad.
   if (/iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1)) return 'ios';
@@ -14,14 +16,8 @@ export function installPlatform(userAgent, maxTouchPoints = 0) {
   return 'other';
 }
 
-const STEPS = {
-  ios: 'Tap the Share button (the square with an arrow, at the bottom of Safari), then "Add to Home Screen".',
-  'edge-android': 'Tap the ≡ menu at the bottom right, swipe the panel up, then tap "Add to phone".',
-  samsung: 'Tap the ≡ menu at the bottom right, then "Add page to" → "Home screen".',
-  'firefox-android': 'Tap the ⋮ menu, then "Add to Home screen".',
-  other: 'Open your browser menu and choose "Install app" or "Add to Home screen".',
-};
+const PLATFORMS = ['ios', 'edge-android', 'samsung', 'firefox-android', 'other'];
 
 export function installSteps(platform) {
-  return STEPS[platform] || STEPS.other;
+  return t(`install.${PLATFORMS.includes(platform) ? platform : 'other'}`);
 }

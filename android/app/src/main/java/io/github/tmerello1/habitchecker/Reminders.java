@@ -61,8 +61,8 @@ final class Reminders {
             if (today.equals(Store.notified(ctx, h.id))) continue;
             Notification n = new Notification.Builder(ctx, CHANNEL)
                     .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(h.emoji + " Time for: " + h.name)
-                    .setContentText("Keep your streak going!")
+                    .setContentTitle(ctx.getString(R.string.reminder_title, h.emoji, h.name))
+                    .setContentText(ctx.getString(R.string.reminder_body))
                     .setContentIntent(tap)
                     .setAutoCancel(true)
                     .build();

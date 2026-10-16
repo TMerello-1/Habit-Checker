@@ -2,5 +2,11 @@
     <string name="app_name">Habit Checker</string>
     <string name="widget_name">Open habits</string>
     <string name="widget_title">Today</string>
+    <string name="widget_first_open">Open Habit Checker once to load your habits.</string>
+    <string name="widget_nothing_today">Nothing scheduled today.</string>
+    <string name="widget_all_done">All done today 🎉</string>
+    <string name="widget_count">%1$d of %2$d done</string>
     <string name="channel_name">Habit reminders</string>
+    <string name="reminder_title">%1$s Time for: %2$s</string>
+    <string name="reminder_body">Keep your streak going!</string>
 </resources>
