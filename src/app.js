@@ -3,7 +3,7 @@
 // enough that diffing isn't worth it).
 
 import { dateKey, WEEKDAYS } from './dates.js';
-import { currentStreak, dueToday, isDone, rewards, STREAK_MILESTONES } from './habits.js';
+import { currentStreak, dueToday, editHabit, isDone, rewards, STREAK_MILESTONES } from './habits.js';
 import { dueReminders, notify, requestPermission } from './reminders.js';
 import { load, save } from './store.js';
 
@@ -56,11 +56,13 @@ function render() {
   $('#all').replaceChildren(
     ...habits.map((h) => {
       const li = document.createElement('li');
-      li.className = 'habit';
+      li.className = h.id === editing ? 'habit editing' : 'habit';
       li.innerHTML = `
         <span class="emoji">${esc(h.emoji)}</span>
         <span class="name">${esc(h.name)}<small>${h.days.map((d) => WEEKDAYS[d]).join(' ')}${h.time ? ` · ${h.time}` : ''}</small></span>
+        <button class="edit" aria-label="Edit ${esc(h.name)}">✎</button>
         <button class="delete" aria-label="Delete ${esc(h.name)}">✕</button>`;
+      li.querySelector('.edit').onclick = () => startEdit(h);
       // Two-tap delete instead of confirm(), which some embedded viewers block.
       li.querySelector('.delete').onclick = (e) => {
         const btn = e.currentTarget;
@@ -72,6 +74,7 @@ function render() {
         }
         state.habits = state.habits.filter((x) => x.id !== h.id);
         delete state.completions[h.id];
+        if (editing === h.id) resetForm();
         commit();
       };
       return li;
@@ -148,23 +151,67 @@ $('#emoji-btn').onclick = () => showPicker($('#emoji-picker').hidden);
 $('#emoji-custom').oninput = (e) => pickEmoji(e.target.value.trim() || '✅');
 pickEmoji('✅');
 
-$('#add-form').onsubmit = (e) => {
+// The same form adds new habits and edits existing ones. `editing` is the id of
+// the habit being edited, or null when adding.
+let editing = null;
+const form = $('#add-form');
+
+function startEdit(habit) {
+  editing = habit.id;
+  form.elements.name.value = habit.name;
+  form.querySelectorAll('[name=days]').forEach((c) => (c.checked = habit.days.includes(Number(c.value))));
+  form.elements.time.value = habit.time;
+  pickEmoji(habit.emoji);
+  $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
+  showPicker(false);
+  setFormMode();
+  render();
+  $('#form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  form.elements.name.focus({ preventScroll: true });
+}
+
+function resetForm() {
+  editing = null;
+  form.reset();
+  form.querySelectorAll('[name=days]').forEach((c) => (c.checked = true));
+  pickEmoji('✅');
+  showPicker(false);
+  setFormMode();
+}
+
+function setFormMode() {
+  $('#form-title').textContent = editing ? 'Edit habit' : 'New habit';
+  form.querySelector('[type=submit]').textContent = editing ? 'Save changes' : 'Add habit';
+  $('#cancel-edit').hidden = !editing;
+}
+
+$('#cancel-edit').onclick = () => {
+  resetForm();
+  render();
+};
+
+form.onsubmit = (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const days = f.getAll('days').map(Number);
   if (!days.length) return toast('Pick at least one day');
-  state.habits.push({
-    id: crypto.randomUUID(),
+  const fields = {
     name: f.get('name').trim(),
     emoji: f.get('emoji').trim() || '✅',
     days,
     time: f.get('time') || '',
-    createdAt: dateKey(),
-  });
-  e.target.reset();
-  e.target.querySelectorAll('[name=days]').forEach((c) => (c.checked = true));
-  pickEmoji('✅');
-  showPicker(false);
+  };
+  const i = state.habits.findIndex((h) => h.id === editing);
+  if (i >= 0) {
+    const old = state.habits[i];
+    state.habits[i] = editHabit(old, fields);
+    // A new reminder time may still be ahead today, so let it fire again.
+    if (fields.time !== old.time) delete state.notified[old.id];
+    toast(`Saved ${fields.name}`);
+  } else {
+    state.habits.push({ id: crypto.randomUUID(), ...fields, createdAt: dateKey() });
+  }
+  resetForm();
   commit();
 };
 

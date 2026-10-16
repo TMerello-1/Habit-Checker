@@ -2,14 +2,38 @@
 // so everything in this file is unit-tested under Node (see tests/).
 //
 // Habit shape:
-//   { id, name, emoji, days: [0-6 weekday numbers, 0 = Sunday], time: "HH:MM" | "", createdAt: "YYYY-MM-DD" }
+//   { id, name, emoji, days: [0-6 weekday numbers, 0 = Sunday], time: "HH:MM" | "", createdAt: "YYYY-MM-DD",
+//     pastDays?: [{ until: "YYYY-MM-DD", days }] }
+// `days` is the current schedule. `pastDays` (oldest first) records earlier schedules,
+// each in effect for days before its `until`, so editing the days never rewrites history.
 // Completions shape (kept separately in state):
 //   { [habitId]: ["YYYY-MM-DD", ...] }
 
 import { addDays, dateKey, parseKey } from './dates.js';
 
 export function isScheduled(habit, date) {
-  return habit.days.includes(date.getDay()) && dateKey(date) >= habit.createdAt;
+  const key = dateKey(date);
+  return key >= habit.createdAt && daysOn(habit, key).includes(date.getDay());
+}
+
+function daysOn(habit, key) {
+  const past = (habit.pastDays || []).find((p) => key < p.until);
+  return past ? past.days : habit.days;
+}
+
+// Returns the habit with `changes` ({ name, emoji, days, time }) applied. Its id and
+// createdAt stay, so completions, streaks and badges carry over. A new set of days
+// takes effect today; the old one is kept in pastDays for the days before.
+export function editHabit(habit, changes, today = new Date()) {
+  const next = { ...habit, ...changes, id: habit.id, createdAt: habit.createdAt };
+  const key = dateKey(today);
+  const sameDays = [...habit.days].sort().join() === [...next.days].sort().join();
+  if (sameDays) return { ...next, days: habit.days };
+  if (key <= habit.createdAt) return next;
+  // Edited again today: today already uses the new days, so just replace them.
+  const past = (habit.pastDays || []).filter((p) => p.until < key);
+  const prev = habit.pastDays?.find((p) => p.until === key);
+  return { ...next, pastDays: [...past, prev || { until: key, days: habit.days }] };
 }
 
 export function isDone(completions, habitId, date) {
