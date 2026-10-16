@@ -1,15 +1,20 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v7';
+const CACHE = 'habit-checker-v8';
 const ASSETS = [
   './',
   'index.html',
   'styles.css',
   'manifest.webmanifest',
   'icons/icon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/maskable-512.png',
+  'icons/apple-touch-icon.png',
   'src/app.js',
   'src/dates.js',
   'src/habits.js',
+  'src/install.js',
   'src/reminders.js',
   'src/store.js',
 ];

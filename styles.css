@@ -107,10 +107,10 @@ input[name=name] { flex: 1; min-width: 0; }
 .days legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .days label { display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .time { flex: 1; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-button[type=submit], #enable-reminders {
+button[type=submit], #enable-reminders, #install {
   font: inherit; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer;
 }
-#enable-reminders { width: 100%; margin-bottom: 16px; }
+#enable-reminders, #install { width: 100%; margin-bottom: 16px; }
 .note {
   margin: 0 0 16px; padding: 10px 12px; font-size: 14px; color: var(--muted);
   background: var(--card); border: 1px dashed var(--border); border-radius: 8px;
