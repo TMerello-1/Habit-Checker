@@ -1,6 +1,6 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v6';
+const CACHE = 'habit-checker-v7';
 const ASSETS = [
   './',
   'index.html',
@@ -15,7 +15,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache (GitHub Pages allows 10 minutes),
+  // which could otherwise fill the new cache with the previous version's files.
+  const fresh = ASSETS.map((url) => new Request(url, { cache: 'reload' }));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(fresh)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
