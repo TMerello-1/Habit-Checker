@@ -72,6 +72,18 @@
     </details>
   </main>
 
+  <dialog id="confirm-done" class="confirm" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <p class="confirm-emoji" id="confirm-emoji" aria-hidden="true"></p>
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p id="confirm-text">Don't trick yourself. 😉</p>
+      <div class="row">
+        <button value="cancel" class="cancel">Not yet</button>
+        <button value="ok" type="submit" autofocus>Yes, I did it</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="src/app.js"></script>
 </body>
