@@ -4,6 +4,7 @@
 
 import { dateKey, WEEKDAYS } from './dates.js';
 import { currentStreak, dueToday, isDone, rewards, STREAK_MILESTONES } from './habits.js';
+import { enablePush, pushActive, syncPush } from './push.js';
 import { dueReminders, notify, requestPermission } from './reminders.js';
 import { load, save } from './store.js';
 
@@ -12,6 +13,7 @@ const $ = (sel) => document.querySelector(sel);
 
 function commit() {
   save(state);
+  syncPush(state);
   render();
 }
 
@@ -133,9 +135,12 @@ $('#add-form').onsubmit = (e) => {
 $('#enable-reminders').onclick = async () => {
   await requestPermission();
   render();
+  enablePush(state);
 };
 
 function checkReminders() {
+  // With the push server on, it sends the reminders (even while the app is closed).
+  if (pushActive()) return;
   for (const h of dueReminders(state)) {
     notify(h);
     state.notified[h.id] = dateKey();
@@ -150,3 +155,4 @@ setInterval(checkReminders, 30_000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 checkReminders();
+enablePush(state);

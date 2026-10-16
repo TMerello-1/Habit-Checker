@@ -33,9 +33,11 @@ Requires Node 22+ (the built-in `node:test` runner). Don't pass a directory to `
 - **Streaks count only scheduled days.** Unscheduled weekdays are skipped and don't break a streak. Today being scheduled but not yet done also doesn't break it. Days before `habit.createdAt` never count.
 - **Rewards are derived, never stored.** `rewards()` recomputes points, level and badges from the completion history every time, so un-checking a habit takes its points back. Scoring is 10 pts per check-in plus 50 pts per streak-milestone badge (`STREAK_MILESTONES`), with a new level every 250 pts.
 
-### Reminders limitation
+### Reminders and the push server
 
-Reminders only fire while the app is open: `app.js` polls `dueReminders()` every 30s. A static PWA has no reliable way to wake itself at a set time when closed, so real background reminders would need a Web Push server (VAPID keys plus a `push` handler in `sw.js`).
+Reminders come from two places. While the app is open, `app.js` polls `dueReminders()` every 30s. When `PUSH_SERVER` in `src/config.js` is set, `src/push.js` subscribes the device for Web Push and syncs a copy of the habits, the timezone and each habit's latest check-in date to the server after every `commit()`; from then on the server sends the reminders (also while the app is closed) and the in-page polling stands down. With `PUSH_SERVER` empty, push is skipped entirely.
+
+`server/` is the push server, a Cloudflare Worker (KV namespace `SUBS`, cron every minute). `server/src/webpush.js` implements VAPID and RFC 8291 encryption with WebCrypto only (its test checks the RFC example byte for byte). `server/src/schedule.js` works out the user's local date and time from their IANA timezone and reuses `isScheduled()` from `src/habits.js`, so keep that file free of browser APIs. Run it locally with `npx wrangler dev --test-scheduled` in `server/` (needs a `.dev.vars` with `VAPID_JWK`). `.github/workflows/deploy-push-server.yml` deploys it when `server/` changes on main; it needs only the `CLOUDFLARE_API_TOKEN` repo secret and creates the KV namespace and VAPID keys itself.
 
 ## When changing files
 
