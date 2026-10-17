@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 const root = new URL('../', import.meta.url);
 const read = (p) => readFileSync(new URL(p, root), 'utf8');
 
-const modules = ['src/dates.js', 'src/habits.js', 'src/i18n.js', 'src/store.js', 'src/reminders.js', 'src/install.js', 'src/transfer.js', 'src/app.js'];
+const modules = ['src/codes.js', 'src/config.js', 'src/names.js', 'src/dates.js', 'src/habits.js', 'src/i18n.js', 'src/store.js', 'src/reminders.js', 'src/install.js', 'src/transfer.js', 'src/friends.js', 'src/app.js'];
 const js = modules
   .map((m) => read(m).replace(/^import .*;\n/gm, '').replace(/^export /gm, ''))
   .join('\n');

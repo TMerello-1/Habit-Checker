@@ -1,0 +1,109 @@
+# Deploys the friends server (friends-server/) to Cloudflare Workers with a D1 database.
+#
+# One-time setup: add a repository secret CLOUDFLARE_API_TOKEN, created in Cloudflare
+# from the "Edit Cloudflare Workers" token template with one extra permission added:
+# Account → D1 → Edit. Everything else is set up here on the first run: the D1 database
+# and its tables, and the workers.dev subdomain if the account has none.
+# Without the secret this workflow skips itself instead of failing.
+name: Deploy friends server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'friends-server/**'
+      - 'src/codes.js'
+      - 'src/names.js'
+      - '.github/workflows/deploy-friends-server.yml'
+  workflow_dispatch:
+
+concurrency: deploy-friends-server
+
+permissions:
+  contents: read
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  WORKER: habit-checker-friends
+  DB_NAME: habit-checker-friends
+  API: https://api.cloudflare.com/client/v4
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for the Cloudflare token
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN secret is not set, so the friends server was not deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ready == 'true'
+        with:
+          node-version: 22
+
+      - name: Run tests
+        if: steps.token.outputs.ready == 'true'
+        run: npm test
+
+      - name: Find account, D1 database and workers.dev subdomain
+        if: steps.token.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          cf() { curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" "$@"; }
+
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          if [ -z "$ACCOUNT_ID" ]; then
+            ACCOUNT_ID=$(cf "$API/accounts" | jq -r '.result[0].id // empty')
+          fi
+          [ -n "$ACCOUNT_ID" ] || { echo "::error::The token can't see any Cloudflare account. Create it from the 'Edit Cloudflare Workers' template."; exit 1; }
+          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
+
+          DB_ID=$(cf "$API/accounts/$ACCOUNT_ID/d1/database?name=$DB_NAME" \
+            | jq -r --arg n "$DB_NAME" '.result[] | select(.name == $n) | .uuid') \
+            || { echo "::error::The token can't use D1. Edit it in Cloudflare and add Account → D1 → Edit."; exit 1; }
+          if [ -z "$DB_ID" ]; then
+            DB_ID=$(cf -X POST "$API/accounts/$ACCOUNT_ID/d1/database" -d "{\"name\":\"$DB_NAME\"}" | jq -r '.result.uuid')
+            echo "Created D1 database $DB_NAME"
+          fi
+          sed -i "s/D1_DATABASE_ID/$DB_ID/" friends-server/wrangler.toml
+
+          SUBDOMAIN=$(cf "$API/accounts/$ACCOUNT_ID/workers/subdomain" 2>/dev/null | jq -r '.result.subdomain // empty' || true)
+          if [ -z "$SUBDOMAIN" ]; then
+            SUBDOMAIN="habits-${ACCOUNT_ID:0:8}"
+            cf -X PUT "$API/accounts/$ACCOUNT_ID/workers/subdomain" -d "{\"subdomain\":\"$SUBDOMAIN\"}" > /dev/null \
+              || { echo "::error::No workers.dev subdomain yet. Open Workers & Pages in the Cloudflare dashboard once, then re-run."; exit 1; }
+            echo "Registered workers.dev subdomain $SUBDOMAIN"
+          fi
+          echo "SUBDOMAIN=$SUBDOMAIN" >> "$GITHUB_ENV"
+
+      - name: Create or update the tables
+        if: steps.token.outputs.ready == 'true'
+        working-directory: friends-server
+        run: npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --file schema.sql
+
+      - name: Deploy
+        if: steps.token.outputs.ready == 'true'
+        working-directory: friends-server
+        run: npx --yes wrangler@4 deploy
+
+      - name: Check the server and print its address
+        if: steps.token.outputs.ready == 'true'
+        run: |
+          URL="https://$WORKER.$SUBDOMAIN.workers.dev"
+          # A brand-new workers.dev subdomain can take a few minutes to start answering.
+          for i in $(seq 1 12); do
+            curl -fsS "$URL/" > /dev/null && break
+            sleep 10
+          done
+          curl -fsS "$URL/" || echo "::warning::$URL isn't answering yet. New workers.dev addresses can take a few minutes."
+          echo "### Friends server deployed at $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Put this address in src/config.js as FRIENDS_SERVER." >> "$GITHUB_STEP_SUMMARY"

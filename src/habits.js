@@ -101,3 +101,10 @@ export function dueToday(habits, today = new Date()) {
 export function openToday(habits, completions, today = new Date()) {
   return dueToday(habits, today).filter((h) => !isDone(completions, h.id, today));
 }
+
+// What friends see of you: the level from your own screen and your best current streak.
+// Private habits don't count toward the streak, so friends learn nothing about them.
+export function sharedStats(habits, completions, today = new Date()) {
+  const streaks = habits.filter((h) => !h.private).map((h) => currentStreak(h, completions, today));
+  return { level: rewards(habits, completions, today).level, streak: Math.max(0, ...streaks) };
+}
