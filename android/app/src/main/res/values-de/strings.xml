@@ -10,4 +10,10 @@
     <string name="reminder_title">%1$s Zeit für: %2$s</string>
     <string name="reminder_title_private">🔒 Zeit für eine private Gewohnheit</string>
     <string name="reminder_body">Bleib an deiner Serie dran!</string>
+    <string name="update_title">Update verfügbar</string>
+    <string name="update_message">Eine neue Version von Habit Checker ist da. Deine Gewohnheiten und Serien bleiben erhalten.</string>
+    <string name="update_now">Aktualisieren</string>
+    <string name="update_later">Später</string>
+    <string name="update_downloading">Update wird heruntergeladen…</string>
+    <string name="update_failed">Das Update konnte nicht geladen werden. Versuch es später noch mal.</string>
 </resources>
