@@ -63,3 +63,4 @@ export const removeFriend = (code, id) => api('DELETE', `/friends/${encodeURICom
 export const sendFeedback = (feedback) => api('POST', '/feedback', { body: feedback });
 export const fetchFeedback = (code) => api('GET', '/feedback', { code });
 export const deleteFeedback = (code, id) => api('DELETE', `/feedback/${encodeURIComponent(id)}`, { code });
+export const registerAdminDevice = (code, device) => api('PUT', '/admin/device', { code, body: device });

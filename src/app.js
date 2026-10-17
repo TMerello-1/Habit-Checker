@@ -4,12 +4,12 @@
 
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { dateKey } from './dates.js';
-import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
+import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, registerAdminDevice, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
 import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, sharedStats, STREAK_MILESTONES } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
-import { enablePush, pushActive, syncPush } from './push.js';
+import { enablePush, pushActive, pushEndpoint, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { load, loadOpenSections, save, saveOpenSections } from './store.js';
 import { exportData, parseImport } from './transfer.js';
@@ -312,7 +312,7 @@ $('#confirm-done').onclick = (e) => {
 $('#enable-reminders').onclick = async () => {
   await requestPermission();
   render();
-  enablePush(state);
+  enablePush(state).then(syncAdminDevice);
 };
 
 // Chromium browsers fire beforeinstallprompt once the app is installable; keep it
@@ -519,7 +519,7 @@ async function friendsCall(fn, messages = {}) {
     // A null message keeps a background call quiet, e.g. a refresh while offline.
     if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
     if (err.status === 401 && friends.me) {
-      friends = { ...friends, code: '', me: null, admin: false, friends: [], sent: '' };
+      friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '' };
       commitFriends();
       return toast(t('profileGone'));
     }
@@ -537,6 +537,7 @@ async function refreshFriends() {
     friends.admin = Boolean(admin);
     commitFriends();
   }, { 0: null });
+  syncAdminDevice();
 }
 
 // Friends see level and streak, so send them whenever they change (shortly after, so a
@@ -717,14 +718,49 @@ $('#feedback-send').onclick = (e) => {
 let inbox = [];
 $('#menu-inbox').onclick = () => {
   $('#menu').close();
+  openInbox();
+};
+
+function openInbox() {
   inbox = [];
   renderInbox();
-  $('#inbox-dialog').showModal();
+  if (!$('#inbox-dialog').open) $('#inbox-dialog').showModal();
   friendsCall(async () => {
     ({ feedback: inbox } = await fetchFeedback(friends.code));
     renderInbox();
   });
-};
+  pushEndpoint()
+    .catch(() => null)
+    .then((endpoint) => {
+      $('#inbox-push-hint').hidden = Boolean(endpoint);
+      $('#inbox-push-hint').textContent = t(androidApp ? 'inboxPushAndroid' : 'inboxPushHint');
+    });
+}
+
+// An admin's device with push reminders on registers its push endpoint, so the server
+// sends it a notification for each new feedback. Re-sent once a day (and when the
+// endpoint or language changes) in case the server dropped it.
+async function syncAdminDevice() {
+  if (!friends.me || !friends.admin) return;
+  const endpoint = await pushEndpoint().catch(() => null);
+  if (!endpoint) return;
+  const key = `${dateKey()}|${lang}|${endpoint}`;
+  if (friends.adminDevice === key) return;
+  await friendsCall(async () => {
+    await registerAdminDevice(friends.code, { endpoint, title: t('feedbackPushTitle') });
+    friends.adminDevice = key;
+    saveFriends(friends);
+  }, { 0: null, 403: null });
+}
+
+// Tapping a new-feedback notification opens the app at …#inbox.
+function openInboxLink() {
+  if (location.hash !== '#inbox') return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (friends.me && friends.admin) openInbox();
+}
+openInboxLink();
+window.addEventListener('hashchange', openInboxLink);
 
 function renderInbox() {
   $('#inbox-empty').hidden = inbox.length > 0;
@@ -824,4 +860,4 @@ renderFriends();
 refreshFriends();
 sendStatsSoon();
 checkReminders();
-enablePush(state);
+enablePush(state).then(syncAdminDevice);

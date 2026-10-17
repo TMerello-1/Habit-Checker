@@ -40,3 +40,13 @@ CREATE TABLE IF NOT EXISTS feedback (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS feedback_by_sender ON feedback (ip_hash, created_at);
+
+-- Devices of admin profiles that want a notification for new feedback: their Web Push
+-- endpoint (the push server in server/ holds the subscription itself) and the
+-- notification text in that admin's language.
+CREATE TABLE IF NOT EXISTS admin_devices (
+  endpoint TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);

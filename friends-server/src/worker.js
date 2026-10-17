@@ -17,9 +17,13 @@
 //   POST   /feedback               { text, lang, platform }   no sign-in needed, anonymous
 //   GET    /feedback                                → { feedback }   admins only
 //   DELETE /feedback/<id>                                             admins only
+//   PUT    /admin/device           { endpoint, title }                admins only
+//   DELETE /admin/device           { endpoint }                       admins only
 //
 // Admins are the profiles named in the ADMINS variable (see wrangler.toml); GET /me tells
 // the app whether the signed-in profile is one, so it can show the feedback inbox.
+// An admin device registered with PUT /admin/device gets a push for each new feedback,
+// sent through the push server (server/) over the PUSH service binding.
 
 import { INVITE_LENGTH, isCode, normalizeCode, randomCode, RECOVERY_LENGTH } from '../../src/codes.js';
 import { ADJECTIVES, ANIMALS } from '../../src/names.js';
@@ -119,6 +123,7 @@ async function deleteProfile(env, me) {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM friends WHERE profile_id = ? OR friend_id = ?').bind(me.id, me.id),
     env.DB.prepare('DELETE FROM invites WHERE profile_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM admin_devices WHERE profile_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM profiles WHERE id = ?').bind(me.id),
   ]);
   return json({ ok: true });
@@ -179,7 +184,7 @@ async function removeFriend(env, me, id) {
   return json({ ok: true });
 }
 
-async function sendFeedback(request, env) {
+async function sendFeedback(request, env, ctx) {
   const body = await request.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   if (!text || text.length > MAX_FEEDBACK_LENGTH) return fail(400, 'invalid feedback');
@@ -195,7 +200,51 @@ async function sendFeedback(request, env) {
   await env.DB.prepare('INSERT INTO feedback (id, text, lang, platform, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(crypto.randomUUID(), text, lang, platform, ipHash, now.toISOString())
     .run();
+  const notifying = notifyAdmins(env, text).catch((err) => console.error('admin push failed', err));
+  if (ctx) ctx.waitUntil(notifying);
+  else await notifying;
   return json({ ok: true }, 201);
+}
+
+// Each admin device gets "<its title>" with the start of the feedback as the body. Each
+// language's devices go in one request; endpoints the push server no longer knows are dropped.
+export async function notifyAdmins(env, text) {
+  if (!env.PUSH) return;
+  const { results } = await env.DB.prepare(
+    'SELECT d.endpoint, d.title, p.adj, p.animal, p.num FROM admin_devices d JOIN profiles p ON p.id = d.profile_id',
+  ).all();
+  const byTitle = new Map();
+  // A profile taken off ADMINS stops getting these, even with its device still listed.
+  for (const r of results.filter((row) => isAdmin(env, row))) byTitle.set(r.title, [...(byTitle.get(r.title) || []), r.endpoint]);
+  const body = text.length > 140 ? `${text.slice(0, 139)}…` : text;
+  for (const [title, endpoints] of byTitle) {
+    const res = await env.PUSH.fetch('https://internal/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoints, message: { title, body, tag: 'feedback', url: '#inbox' } }),
+    });
+    if (!res.ok) throw new Error(`push server answered ${res.status}`);
+    const { unknown = [] } = await res.json();
+    for (const endpoint of unknown) await env.DB.prepare('DELETE FROM admin_devices WHERE endpoint = ?').bind(endpoint).run();
+  }
+}
+
+async function saveAdminDevice(request, env, me) {
+  const body = await request.json().catch(() => null);
+  const endpoint = typeof body?.endpoint === 'string' ? body.endpoint : '';
+  if (!/^https:\/\/\S{1,500}$/.test(endpoint)) return fail(400, 'invalid endpoint');
+  if (request.method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM admin_devices WHERE endpoint = ? AND profile_id = ?').bind(endpoint, me.id).run();
+    return json({ ok: true });
+  }
+  const title = typeof body.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 80) : '💬 New feedback';
+  await env.DB.prepare(
+    `INSERT INTO admin_devices (endpoint, profile_id, title, created_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT (endpoint) DO UPDATE SET profile_id = excluded.profile_id, title = excluded.title`,
+  )
+    .bind(endpoint, me.id, title, new Date().toISOString())
+    .run();
+  return json({ ok: true });
 }
 
 async function listFeedback(env) {
@@ -205,12 +254,12 @@ async function listFeedback(env) {
   });
 }
 
-async function route(request, env) {
+async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   const { method } = request;
   if (method === 'GET' && pathname === '/') return json({ ok: true, service: 'habit-checker-friends' });
   if (method === 'POST' && pathname === '/profiles') return createProfile(request, env);
-  if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env);
+  if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env, ctx);
 
   const me = await signedIn(request, env);
   if (!me) return fail(401, 'unknown profile');
@@ -226,8 +275,9 @@ async function route(request, env) {
   if ((m = pathname.match(/^\/invites\/([^/]+)\/accept$/)) && method === 'POST') return acceptInvite(env, me, m[1]);
   if ((m = pathname.match(/^\/friends\/([\w-]{1,64})$/)) && method === 'DELETE') return removeFriend(env, me, m[1]);
 
-  if (pathname === '/feedback' || pathname.startsWith('/feedback/')) {
+  if (pathname === '/feedback' || pathname.startsWith('/feedback/') || pathname === '/admin/device') {
     if (!isAdmin(env, me)) return fail(403, 'not an admin');
+    if ((method === 'PUT' || method === 'DELETE') && pathname === '/admin/device') return saveAdminDevice(request, env, me);
     if (method === 'GET' && pathname === '/feedback') return listFeedback(env);
     if ((m = pathname.match(/^\/feedback\/([\w-]{1,64})$/)) && method === 'DELETE') {
       await env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(m[1]).run();
@@ -238,10 +288,10 @@ async function route(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
-      return await route(request, env);
+      return await route(request, env, ctx);
     } catch (err) {
       console.error(err);
       return fail(500, 'server error');
