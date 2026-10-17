@@ -61,7 +61,9 @@ final class Reminders {
             if (today.equals(Store.notified(ctx, h.id))) continue;
             Notification n = new Notification.Builder(ctx, CHANNEL)
                     .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(ctx.getString(R.string.reminder_title, h.emoji, h.name))
+                    .setContentTitle(h.isPrivate
+                            ? ctx.getString(R.string.reminder_title_private)
+                            : ctx.getString(R.string.reminder_title, h.emoji, h.name))
                     .setContentText(ctx.getString(R.string.reminder_body))
                     .setContentIntent(tap)
                     .setAutoCancel(true)

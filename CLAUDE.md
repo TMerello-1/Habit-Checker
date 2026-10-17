@@ -35,6 +35,7 @@ Requires Node 22+ (the built-in `node:test` runner). Don't pass a directory to `
 
 - **Dates are local calendar keys** (`"YYYY-MM-DD"`, built by `dateKey()` in `src/dates.js`), never UTC ISO strings. `completions[habitId]` is an array of these keys.
 - **Streaks count only scheduled days.** Unscheduled weekdays are skipped and don't break a streak. Today being scheduled but not yet done also doesn't break it. Days before `habit.createdAt` never count.
+- **Private habits (`habit.private`) never show their name outside the app**: the web lists put them in a collapsed "🔒 Private" group, and reminders (`reminderTitle()`, `Reminders.java`) and the widget use a generic line instead.
 - **Rewards are derived, never stored.** `rewards()` recomputes points, level and badges from the completion history every time, so un-checking a habit takes its points back. Scoring is 10 pts per check-in plus 50 pts per streak-milestone badge (`STREAK_MILESTONES`), with a new level every 250 pts.
 
 ### Reminders limitation

@@ -46,7 +46,7 @@ public class HabitWidget extends AppWidgetProvider {
             count = ctx.getString(R.string.widget_count, scheduled - open.size(), scheduled);
             for (Habits.Habit h : open) {
                 if (list.length() > 0) list.append('\n');
-                list.append(h.label());
+                list.append(h.isPrivate ? ctx.getString(R.string.widget_private) : h.label());
                 if (!h.time.isEmpty()) list.append("  ·  ").append(h.time);
             }
         }
