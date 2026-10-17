@@ -1,6 +1,6 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v9';
+const CACHE = 'habit-checker-v14';
 const ASSETS = [
   './',
   'index.html',
@@ -15,10 +15,12 @@ const ASSETS = [
   'src/config.js',
   'src/dates.js',
   'src/habits.js',
+  'src/i18n.js',
   'src/install.js',
   'src/push.js',
   'src/reminders.js',
   'src/store.js',
+  'src/transfer.js',
 ];
 
 self.addEventListener('install', (e) => {

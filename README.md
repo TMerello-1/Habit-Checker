@@ -14,7 +14,7 @@ npm start   # then open http://localhost:8080
 npm test
 ```
 
-Reminders appear as system notifications after you tap "Turn on reminders". With the push server (`server/`, a free Cloudflare Worker) deployed and its address in `src/config.js`, they arrive even while the app is closed. Otherwise they only fire while the app is open. On iPhone, push needs the app added to the home screen (iOS 16.4+).
+Reminders appear as system notifications after you tap "Turn on reminders". In the browser they only fire while the app is open, unless the push server (`server/`, a free Cloudflare Worker) is deployed and its address is in `src/config.js`. On iPhone, push also needs the app added to the home screen (iOS 16.4+). The Android app below has its own reminders and doesn't need the push server.
 
 ### Push server setup
 
@@ -23,3 +23,13 @@ Reminders appear as system notifications after you tap "Turn on reminders". With
 3. In this GitHub repo, add it under Settings → Secrets and variables → Actions as `CLOUDFLARE_API_TOKEN`.
 4. Run the "Deploy push server" workflow from the Actions tab. Its summary shows the server's address.
 5. Put that address in `src/config.js` as `PUSH_SERVER` (and bump `CACHE` in `sw.js`).
+
+## Android app and widget
+
+`android/` is a small Android app that runs this site in a WebView and adds a home screen widget listing today's open habits. It also shows reminders natively, so they fire even while the app is closed.
+
+1. On your phone, download `habit-checker.apk` from the [android-latest release](https://github.com/TMerello-1/Habit-Checker/releases/tag/android-latest) and open it. Allow installing from your browser when Android asks.
+2. In the PWA, open **Move your data** and tap **Copy my data**. In the Android app, paste it into the same section and tap **Replace my data with this**. The two keep separate data, so use the Android app from then on.
+3. Long-press the home screen, choose **Widgets**, and drag **Habit Checker** onto it.
+
+The APK is built by `.github/workflows/android.yml` and republished whenever `android/` changes on main. To make updates install over the previous version, add the repo secrets `ANDROID_KEYSTORE` (a base64-encoded keystore with key alias `habit-checker`) and `ANDROID_KEYSTORE_PASSWORD`. Without them each build is signed with a new key, and updating means copying your data, uninstalling, then reinstalling.

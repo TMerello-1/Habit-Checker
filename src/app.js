@@ -2,15 +2,26 @@
 // through commit(), which saves and re-renders the whole view (the app is small
 // enough that diffing isn't worth it).
 
-import { dateKey, WEEKDAYS } from './dates.js';
-import { currentStreak, dueToday, editHabit, isDone, rewards, STREAK_MILESTONES } from './habits.js';
+import { dateKey } from './dates.js';
+import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, STREAK_MILESTONES } from './habits.js';
+import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { enablePush, pushActive, syncPush } from './push.js';
-import { dueReminders, notify, requestPermission } from './reminders.js';
-import { load, save } from './store.js';
+import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
+import { load, loadOpenSections, save, saveOpenSections } from './store.js';
+import { exportData, parseImport } from './transfer.js';
 
 let state = load();
 const $ = (sel) => document.querySelector(sel);
+
+// Text follows the browser or phone language (German or English). index.html holds the
+// English text; elements marked data-i18n* get theirs swapped in once at startup.
+setLang(pickLang(navigator.languages || [navigator.language]));
+document.documentElement.lang = getLang();
+for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = t(el.dataset.i18nPlaceholder);
+for (const el of document.querySelectorAll('[data-i18n-aria-label]')) el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+for (const el of document.querySelectorAll('[data-i18n-day]')) el.textContent = t('weekdays')[el.dataset.i18nDay];
 
 function commit() {
   save(state);
@@ -18,15 +29,31 @@ function commit() {
   render();
 }
 
+// Checking a habit off asks first, so a stray tap or wishful thinking doesn't
+// earn points. Unchecking needs no prompt. An in-page <dialog> rather than
+// confirm(), which the hosted preview blocks.
 function toggle(habit) {
+  if (isDone(state.completions, habit.id, new Date())) return applyToggle(habit);
+  const dlg = $('#confirm-done');
+  $('#confirm-emoji').textContent = habit.emoji;
+  $('#confirm-text').textContent = t('confirmHabit', { name: habit.name });
+  dlg.returnValue = '';
+  dlg.onclose = () => {
+    if (dlg.returnValue === 'ok') applyToggle(habit);
+  };
+  dlg.showModal();
+}
+
+function applyToggle(habit) {
   const today = dateKey();
   const list = state.completions[habit.id] || [];
   const before = currentStreak(habit, state.completions);
   state.completions[habit.id] = list.includes(today) ? list.filter((d) => d !== today) : [...list, today];
+  if (!list.includes(today)) dismissReminder(habit.id).catch(() => {});
   const after = currentStreak(habit, state.completions);
   if (after > before) {
     const milestone = STREAK_MILESTONES.find((m) => m === after);
-    toast(milestone ? `🏆 ${milestone}-day streak on ${habit.name}! +50 bonus` : `+10 points · ${after}🔥`);
+    toast(milestone ? t('milestoneToast', { m: milestone, name: habit.name }) : t('pointsToast', { streak: after }));
   }
   commit();
 }
@@ -40,38 +67,40 @@ function render() {
 
   const today = dueToday(habits);
   const done = today.filter((h) => isDone(state.completions, h.id, new Date())).length;
-  $('#today-summary').textContent = today.length ? `${done} of ${today.length} done` : 'Nothing scheduled today';
+  setBadge(openToday(habits, state.completions).length);
+  $('#today-summary').textContent = today.length ? t('todaySummary', { done, total: today.length }) : t('nothingToday');
   $('#today').replaceChildren(
     ...today.map((h) => {
       const li = document.createElement('li');
       const checked = isDone(state.completions, h.id, new Date());
       li.className = checked ? 'habit done' : 'habit';
       li.innerHTML = `
-        <button class="check" aria-pressed="${checked}" aria-label="Mark ${esc(h.name)} done">${checked ? '✓' : ''}</button>
+        <button class="check" aria-pressed="${checked}" aria-label="${esc(t('markDone', { name: h.name }))}">${checked ? '✓' : ''}</button>
         <span class="emoji">${esc(h.emoji)}</span>
         <span class="name">${esc(h.name)}${h.time ? `<small>${h.time}</small>` : ''}</span>
-        <span class="streak" title="Current streak">${currentStreak(h, state.completions)}🔥</span>`;
+        <span class="streak" title="${esc(t('currentStreak'))}">${currentStreak(h, state.completions)}🔥</span>`;
       li.querySelector('.check').onclick = () => toggle(h);
       return li;
     }),
   );
 
+  $('#all-count').textContent = habits.length ? `${habits.length}` : t('noneYet');
   $('#all').replaceChildren(
     ...habits.map((h) => {
       const li = document.createElement('li');
       li.className = h.id === editing ? 'habit editing' : 'habit';
       li.innerHTML = `
         <span class="emoji">${esc(h.emoji)}</span>
-        <span class="name">${esc(h.name)}<small>${h.days.map((d) => WEEKDAYS[d]).join(' ')}${h.time ? ` · ${h.time}` : ''}</small></span>
-        <button class="edit" aria-label="Edit ${esc(h.name)}">✎</button>
-        <button class="delete" aria-label="Delete ${esc(h.name)}">✕</button>`;
+        <span class="name">${esc(h.name)}<small>${h.days.map((d) => t('weekdays')[d]).join(' ')}${h.time ? ` · ${h.time}` : ''}</small></span>
+        <button class="edit" aria-label="${esc(t('edit', { name: h.name }))}">✎</button>
+        <button class="delete" aria-label="${esc(t('delete', { name: h.name }))}">✕</button>`;
       li.querySelector('.edit').onclick = () => startEdit(h);
       // Two-tap delete instead of confirm(), which some embedded viewers block.
       li.querySelector('.delete').onclick = (e) => {
         const btn = e.currentTarget;
         if (!btn.classList.contains('armed')) {
           btn.classList.add('armed');
-          btn.textContent = 'Delete?';
+          btn.textContent = t('deleteConfirm');
           setTimeout(() => btn.isConnected && render(), 3000);
           return;
         }
@@ -86,27 +115,34 @@ function render() {
 
   $('#badges').replaceChildren(
     ...(r.badges.length
-      ? r.badges.map((b) => Object.assign(document.createElement('li'), { className: 'badge', textContent: b.label }))
-      : [Object.assign(document.createElement('li'), { className: 'muted', textContent: 'Hit a 3-day streak to earn your first badge.' })]),
+      ? r.badges.map((b) => {
+          const emoji = habits.find((h) => h.id === b.habitId).emoji;
+          return Object.assign(document.createElement('li'), { className: 'badge', textContent: t('badge', { emoji, m: b.milestone }) });
+        })
+      : [Object.assign(document.createElement('li'), { className: 'muted', textContent: t('firstBadge') })]),
   );
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
-  $('#enable-reminders').hidden = perm !== 'default' || embedded;
+  $('#enable-reminders').hidden = perm !== 'default' || embedded || androidApp;
   $('#reminder-note').hidden = !reminderNote(perm);
   $('#reminder-note').textContent = reminderNote(perm);
 
   // Offer installing until the app runs from the home screen.
-  $('#install').hidden = installed() || embedded;
+  $('#install').hidden = installed() || embedded || androidApp;
   if ($('#install').hidden) $('#install-help').hidden = true;
 }
 
 // Explain why reminders are off instead of silently hiding the button.
 const embedded = window.self !== window.top;
+// The Android app (android/) loads this site in a WebView, tags its user agent, and
+// shows reminders and the home screen widget natively from the saved state.
+const androidApp = navigator.userAgent.includes('HabitCheckerAndroid');
 function reminderNote(perm) {
+  if (androidApp) return '';
   if (embedded || perm === 'unsupported' || !('serviceWorker' in navigator)) {
-    return 'Reminders are off in this preview. They need the installed app.';
+    return t('remindersPreview');
   }
-  if (perm === 'denied') return 'Notifications are blocked. Allow them for this site in your browser settings to get reminders.';
+  if (perm === 'denied') return t('remindersBlocked');
   return '';
 }
 
@@ -158,6 +194,17 @@ $('#emoji-btn').onclick = () => showPicker($('#emoji-picker').hidden);
 $('#emoji-custom').oninput = (e) => pickEmoji(e.target.value.trim() || '✅');
 pickEmoji('✅');
 
+// "New habit" and "All habits" are <details> sections that start collapsed and
+// remember whether they were left open on this device.
+const openSections = loadOpenSections();
+for (const el of document.querySelectorAll('details.fold')) {
+  el.open = Boolean(openSections[el.id]);
+  el.addEventListener('toggle', () => {
+    openSections[el.id] = el.open;
+    saveOpenSections(openSections);
+  });
+}
+
 // The same form adds new habits and edits existing ones. `editing` is the id of
 // the habit being edited, or null when adding.
 let editing = null;
@@ -172,6 +219,7 @@ function startEdit(habit) {
   $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
   showPicker(false);
   setFormMode();
+  $('#form-section').open = true;
   render();
   $('#form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
   form.elements.name.focus({ preventScroll: true });
@@ -187,8 +235,8 @@ function resetForm() {
 }
 
 function setFormMode() {
-  $('#form-title').textContent = editing ? 'Edit habit' : 'New habit';
-  form.querySelector('[type=submit]').textContent = editing ? 'Save changes' : 'Add habit';
+  $('#form-title').textContent = t(editing ? 'editHabit' : 'newHabit');
+  form.querySelector('[type=submit]').textContent = t(editing ? 'saveChanges' : 'addHabit');
   $('#cancel-edit').hidden = !editing;
 }
 
@@ -201,7 +249,7 @@ form.onsubmit = (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const days = f.getAll('days').map(Number);
-  if (!days.length) return toast('Pick at least one day');
+  if (!days.length) return toast(t('pickDay'));
   const fields = {
     name: f.get('name').trim(),
     emoji: f.get('emoji').trim() || '✅',
@@ -214,12 +262,17 @@ form.onsubmit = (e) => {
     state.habits[i] = editHabit(old, fields);
     // A new reminder time may still be ahead today, so let it fire again.
     if (fields.time !== old.time) delete state.notified[old.id];
-    toast(`Saved ${fields.name}`);
+    toast(t('saved', { name: fields.name }));
   } else {
     state.habits.push({ id: crypto.randomUUID(), ...fields, createdAt: dateKey() });
   }
   resetForm();
   commit();
+};
+
+// Tapping the dimmed backdrop counts as "Not yet".
+$('#confirm-done').onclick = (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.close();
 };
 
 $('#enable-reminders').onclick = async () => {
@@ -243,7 +296,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 window.addEventListener('appinstalled', () => {
   justInstalled = true;
   installPrompt = null;
-  toast('Installed! Open Habit Checker from your home screen.');
+  toast(t('installed'));
   render();
 });
 
@@ -258,6 +311,47 @@ $('#install').onclick = async () => {
   const help = $('#install-help');
   help.textContent = installSteps(installPlatform(navigator.userAgent, navigator.maxTouchPoints));
   help.hidden = !help.hidden;
+};
+
+// "Move your data": copy the state out as text, or replace it with pasted text.
+// Replacing asks for a second tap, like delete, since it overwrites everything here.
+$('#copy-data').onclick = async () => {
+  const text = exportData(state);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(t('copied'));
+  } catch {
+    // No clipboard access: put the text in the box to copy by hand.
+    $('#import-data').value = text;
+    $('#import-data').select();
+    toast(t('copyByHand'));
+  }
+};
+
+$('#import-btn').onclick = (e) => {
+  const btn = e.currentTarget;
+  let data;
+  try {
+    data = parseImport($('#import-data').value);
+  } catch (err) {
+    return toast(err.message);
+  }
+  if (!btn.classList.contains('armed') && state.habits.length) {
+    btn.classList.add('armed');
+    btn.textContent = t('replaceConfirm', { n: state.habits.length });
+    setTimeout(() => {
+      btn.classList.remove('armed');
+      btn.textContent = t('replaceData');
+    }, 3000);
+    return;
+  }
+  btn.classList.remove('armed');
+  btn.textContent = t('replaceData');
+  state = { ...state, ...data, notified: {} };
+  $('#import-data').value = '';
+  resetForm();
+  commit();
+  toast(t('imported', { n: data.habits.length }));
 };
 
 function checkReminders() {

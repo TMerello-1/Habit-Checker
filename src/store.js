@@ -20,3 +20,23 @@ export function save(state) {
     // Storage full or blocked (private mode): the app keeps working for this session.
   }
 }
+
+// Which collapsible sections are open. Kept apart from the app state because it is
+// a per-device view preference, not data.
+const UI_KEY = 'habit-checker:ui';
+
+export function loadOpenSections() {
+  try {
+    return JSON.parse(localStorage.getItem(UI_KEY))?.open || {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveOpenSections(open) {
+  try {
+    localStorage.setItem(UI_KEY, JSON.stringify({ open }));
+  } catch {
+    // Blocked storage: sections just start collapsed next time.
+  }
+}

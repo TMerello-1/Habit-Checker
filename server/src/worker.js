@@ -105,6 +105,7 @@ async function subscribe(request, env) {
     timeZone: body.timeZone,
     habits,
     done: cleanDone(body.done),
+    texts: { title: str(body.texts?.title, 120), body: str(body.texts?.body, 200) },
     notified: keptNotified(previous, habits),
     updatedAt: new Date().toISOString(),
   };
@@ -126,6 +127,16 @@ async function forget(env, id) {
   await setIndexed(env, id, false);
 }
 
+// The app sends its reminder text in the user's language, with {emoji} and {name} slots.
+export function reminderMessage(texts, habit) {
+  const fill = (s) => s.replace('{emoji}', habit.emoji).replace('{name}', habit.name);
+  return {
+    title: fill(texts?.title || '{emoji} Time for: {name}'),
+    body: texts?.body || 'Keep your streak going!',
+    tag: habit.id,
+  };
+}
+
 export async function runReminders(env, now = new Date()) {
   const jwk = JSON.parse(env.VAPID_JWK);
   const subject = env.VAPID_SUBJECT;
@@ -140,7 +151,7 @@ export async function runReminders(env, now = new Date()) {
     for (const habit of due) {
       const status = await sendPush(
         record.subscription,
-        { title: `${habit.emoji} Time for: ${habit.name}`, body: 'Keep your streak going!', tag: habit.id },
+        reminderMessage(record.texts, habit),
         { jwk, subject },
       ).catch((err) => {
         console.error('push failed', id, err);

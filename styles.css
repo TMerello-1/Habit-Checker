@@ -6,6 +6,9 @@
   --accent: #4f46e5;
   --done: #16a34a;
   --border: #e3e2ee;
+  /* Fills behind white text stay deep in both themes so the text stays readable. */
+  --accent-fill: #4f46e5;
+  --done-fill: #16a34a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -39,7 +42,7 @@ body {
   color: var(--text);
 }
 header {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff;
   padding-block: 20px 16px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -55,7 +58,20 @@ main {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-section { margin-bottom: 24px; }
+section, .fold { margin-bottom: 24px; }
+.fold > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after {
+  content: ''; margin-left: auto; width: 8px; height: 8px; flex: none;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform 0.2s;
+}
+.fold[open] > summary::after { transform: rotate(-135deg); }
+.fold > summary h2 { margin: 0; padding-block: 6px; }
+.fold[open] > summary { margin-bottom: 8px; }
 h2 { font-size: 17px; margin: 0 0 8px; }
 h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
 
@@ -73,7 +89,7 @@ h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
   width: 32px; height: 32px; border-radius: 50%; flex: none;
   border: 2px solid var(--accent); background: transparent; color: #fff; font-size: 18px; cursor: pointer;
 }
-.done .check { background: var(--done); border-color: var(--done); }
+.done .check { background: var(--done-fill); border-color: var(--done-fill); }
 .edit { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; }
 .editing { border-color: var(--accent); }
 .cancel { font: inherit; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
@@ -107,10 +123,14 @@ input[name=name] { flex: 1; min-width: 0; }
 .days legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 .days label { display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .time { flex: 1; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-button[type=submit], #enable-reminders, #install {
-  font: inherit; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer;
+button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
+  font: inherit; background: var(--accent-fill); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer;
 }
 #enable-reminders, #install { width: 100%; margin-bottom: 16px; }
+.move { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.move p { margin: 0; }
+.move textarea { font: 13px/1.4 ui-monospace, monospace; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
+#import-btn.armed { background: #dc2626; }
 .note {
   margin: 0 0 16px; padding: 10px 12px; font-size: 14px; color: var(--muted);
   background: var(--card); border: 1px dashed var(--border); border-radius: 8px;
@@ -122,3 +142,16 @@ button[type=submit], #enable-reminders, #install {
   opacity: 0; transition: transform 0.25s, opacity 0.25s; pointer-events: none;
 }
 #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+.confirm {
+  width: min(320px, calc(100% - 32px)); padding: 20px; border: none; border-radius: 14px;
+  background: var(--card); color: var(--text); text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.confirm form { margin: 0; padding: 0; border: none; background: none; box-shadow: none; }
+.confirm::backdrop { background: rgba(0, 0, 0, 0.45); }
+.confirm h2 { margin: 0 0 6px; font-size: 20px; }
+.confirm p { margin: 0 0 18px; color: var(--muted); }
+.confirm .confirm-emoji { font-size: 40px; margin: 0 0 4px; color: inherit; }
+.confirm .row { justify-content: center; gap: 8px; }
+.confirm .cancel { font: inherit; padding: 9px 16px; }

@@ -6,6 +6,7 @@
 
 import { PUSH_SERVER } from './config.js';
 import { dateKey } from './dates.js';
+import { getLang, STRINGS } from './i18n.js';
 
 const SYNCED_KEY = 'habit-checker:push-synced';
 let active = false;
@@ -72,6 +73,8 @@ async function send(state, sub) {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     habits: state.habits.map(({ id, name, emoji, days, time, createdAt }) => ({ id, name, emoji, days, time, createdAt })),
     done,
+    // Templates in the app's language; the server fills in {emoji} and {name}.
+    texts: { title: STRINGS[getLang()].reminderTitle, body: STRINGS[getLang()].reminderBody },
   });
   // Skip unchanged syncs to stay well inside the server's free-tier write limits,
   // but still send once a day so the server never drifts for long.

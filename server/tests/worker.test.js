@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { dueHabits, localClock } from '../src/schedule.js';
 import { generateVapidJwk } from '../src/webpush.js';
-import worker, { runReminders } from '../src/worker.js';
+import worker, { reminderMessage, runReminders } from '../src/worker.js';
 
 const habit = { id: 'a', name: 'Read', emoji: '📚', days: [1], time: '08:00', createdAt: '2026-10-01' };
 // Monday 2026-10-12, 08:03 in New York (EDT, UTC-4).
@@ -105,6 +105,12 @@ test('changing a reminder time lets it fire again the same day', async () => {
   await post('/subscribe', { subscription, timeZone: 'America/New_York', habits: [{ ...habit, time: '09:00' }], done: {} });
   await runReminders(env, new Date('2026-10-12T13:01:00Z'));
   assert.equal(calls.length, 2);
+});
+
+test('reminder text uses the language the app sent', () => {
+  const de = { title: '{emoji} Zeit für: {name}', body: 'Bleib an deiner Serie dran!' };
+  assert.deepEqual(reminderMessage(de, habit), { title: '📚 Zeit für: Read', body: 'Bleib an deiner Serie dran!', tag: 'a' });
+  assert.equal(reminderMessage(undefined, habit).title, '📚 Time for: Read');
 });
 
 test('a checked-off habit gets no push', async () => {

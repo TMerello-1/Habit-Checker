@@ -96,3 +96,8 @@ export function rewards(habits, completions, today = new Date()) {
 export function dueToday(habits, today = new Date()) {
   return habits.filter((h) => isScheduled(h, today));
 }
+
+// Habits scheduled for `today` that aren't checked off yet: the count on the app badge.
+export function openToday(habits, completions, today = new Date()) {
+  return dueToday(habits, today).filter((h) => !isDone(completions, h.id, today));
+}
