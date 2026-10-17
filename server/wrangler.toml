@@ -1,0 +1,17 @@
+# Cloudflare Worker config for the push server. Deployed by
+# .github/workflows/deploy-push-server.yml, which fills in the KV namespace id.
+name = "habit-checker-push"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+# Identifies the sender to push services (Apple requires one).
+VAPID_SUBJECT = "https://tmerello-1.github.io/Habit-Checker/"
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "KV_NAMESPACE_ID"
+
+[triggers]
+crons = ["* * * * *"]

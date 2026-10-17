@@ -16,6 +16,8 @@ import org.json.JSONObject;
 final class Habits {
     static final class Habit {
         final String id, name, emoji, time;
+        /** Private habits are listed and reminded without their name. */
+        final boolean isPrivate;
         final JSONObject json;
 
         Habit(JSONObject h) {
@@ -24,6 +26,7 @@ final class Habits {
             name = h.optString("name");
             emoji = h.optString("emoji", "✅");
             time = h.optString("time", "");
+            isPrivate = h.optBoolean("private", false);
         }
 
         String label() {
