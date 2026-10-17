@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentStreak, editHabit, longestStreak, openToday, rewards } from '../src/habits.js';
+import { currentStreak, editHabit, longestStreak, openToday, rewards, sharedStats } from '../src/habits.js';
 
 // 2026-10-12 is a Monday.
 const day = (d) => new Date(2026, 9, d);
@@ -75,4 +75,18 @@ test('openToday lists scheduled habits not yet done', () => {
   assert.deepEqual(openToday([daily, mwf], {}, day(11)).map((h) => h.id), ['a']);
   // Mon 12: both scheduled, daily already done.
   assert.deepEqual(openToday([daily, mwf], { a: ['2026-10-12'] }, day(12)).map((h) => h.id), ['b']);
+});
+
+test('sharedStats gives friends the level and the best streak, leaving private habits out', () => {
+  const today = new Date(2026, 9, 14);
+  const habits = [
+    { id: 'a', days: [0, 1, 2, 3, 4, 5, 6], createdAt: '2026-10-01' },
+    { id: 'b', days: [0, 1, 2, 3, 4, 5, 6], createdAt: '2026-10-01', private: true },
+  ];
+  const completions = {
+    a: ['2026-10-13', '2026-10-14'],
+    b: ['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14'],
+  };
+  assert.deepEqual(sharedStats(habits, completions, today), { level: 1, streak: 2 });
+  assert.deepEqual(sharedStats([], {}, today), { level: 1, streak: 0 });
 });

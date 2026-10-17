@@ -1,0 +1,11 @@
+# Cloudflare Worker config for the friends server. Deployed by
+# .github/workflows/deploy-friends-server.yml, which fills in the D1 database id.
+name = "habit-checker-friends"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "habit-checker-friends"
+database_id = "D1_DATABASE_ID"

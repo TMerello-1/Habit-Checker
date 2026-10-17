@@ -2,10 +2,13 @@
 // through commit(), which saves and re-renders the whole view (the app is small
 // enough that diffing isn't worth it).
 
+import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { dateKey } from './dates.js';
-import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, STREAK_MILESTONES } from './habits.js';
+import { acceptInvite, createInvite, createProfile, deleteProfile, fetchMe, friendsEnabled, loadFriends, previewInvite, removeFriend, saveFriends, sendStats, ServerError } from './friends.js';
+import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, sharedStats, STREAK_MILESTONES } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
+import { initials, profileName, randomName } from './names.js';
 import { enablePush, pushActive, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { load, loadOpenSections, save, saveOpenSections } from './store.js';
@@ -27,6 +30,7 @@ function commit() {
   save(state);
   syncPush(state);
   render();
+  sendStatsSoon();
 }
 
 // Checking a habit off asks first, so a stray tap or wishful thinking doesn't
@@ -127,6 +131,8 @@ function render() {
   $('#enable-reminders').hidden = perm !== 'default' || embedded || androidApp;
   $('#reminder-note').hidden = !reminderNote(perm);
   $('#reminder-note').textContent = reminderNote(perm);
+
+  if (friends.me) $('#me-stats').textContent = t('stats', sharedStats(habits, state.completions));
 
   // Offer installing until the app runs from the home screen.
   $('#install').hidden = installed() || embedded || androidApp;
@@ -379,6 +385,318 @@ $('#import-btn').onclick = (e) => {
   toast(t('imported', { n: data.habits.length }));
 };
 
+// Friends: an anonymous profile and linked friends (see friends.js). The section only
+// shows when FRIENDS_SERVER is set. It is rendered by renderFriends() on its own, not by
+// render(), so typing a code or nickname isn't wiped by a re-render.
+let friends = loadFriends();
+let joinName = randomName();
+let editingNick = null;
+let preview = null; // { code, profile } of an invite being looked at before accepting
+const lang = getLang();
+const nameOf = (profile) => profileName(profile.name, lang);
+
+function avatar(el, name) {
+  el.textContent = initials(name, lang);
+  el.style.background = `hsl(${(name.animal * 47 + name.adj * 13) % 360} 55% 42%)`;
+}
+
+function renderFriends() {
+  $('#friends-section').hidden = !friendsEnabled();
+  const me = friends.me;
+  $('#friends-join').hidden = Boolean(me);
+  $('#friends-main').hidden = !me;
+  $('#friends-count').textContent = me && friends.friends.length ? `${friends.friends.length}` : '';
+  if (!me) {
+    avatar($('#join-avatar'), joinName);
+    $('#join-name').textContent = profileName(joinName, lang);
+    return;
+  }
+  avatar($('#me-avatar'), me.name);
+  $('#me-name').textContent = nameOf(me);
+  $('#me-stats').textContent = t('stats', sharedStats(state.habits, state.completions));
+  $('#recovery-code').textContent = formatCode(friends.code);
+  $('#show-recovery').textContent = t($('#recovery-box').hidden ? 'showRecovery' : 'hideRecovery');
+  $('#no-friends').hidden = friends.friends.length > 0;
+  $('#friend-list').replaceChildren(...friends.friends.map(friendItem));
+  $('#add-preview').hidden = !preview;
+  if (preview) {
+    avatar($('#add-avatar'), preview.profile.name);
+    const already = friends.friends.some((f) => f.id === preview.profile.id);
+    $('#add-preview-text').textContent = t(already ? 'alreadyFriends' : 'addPreview', { name: nameOf(preview.profile) });
+    $('#add-ok').hidden = already;
+  }
+}
+
+function friendItem(f) {
+  const li = document.createElement('li');
+  li.className = 'habit friend';
+  const nick = friends.nicknames[f.id];
+  const name = nameOf(f);
+  const stats = t('stats', f);
+  li.innerHTML = `
+    <span class="avatar" aria-hidden="true"></span>
+    <span class="name">${
+      f.id === editingNick
+        ? `<input class="nick" maxlength="40" value="${esc(nick || '')}" placeholder="${esc(t('nickname'))}" aria-label="${esc(t('setNickname', { name }))}">`
+        : `${esc(nick || name)}<small>${nick ? `${esc(name)} · ` : ''}${esc(stats)}</small>`
+    }</span>
+    <button class="edit" aria-label="${esc(t('setNickname', { name }))}">${f.id === editingNick ? '✓' : '✎'}</button>
+    <button class="delete" aria-label="${esc(t('removeFriend', { name }))}">✕</button>`;
+  avatar(li.querySelector('.avatar'), f.name);
+  const input = li.querySelector('.nick');
+  const saveNick = () => {
+    const value = input.value.trim();
+    if (value) friends.nicknames[f.id] = value;
+    else delete friends.nicknames[f.id];
+    editingNick = null;
+    commitFriends();
+  };
+  if (input) {
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') saveNick();
+      if (e.key === 'Escape') {
+        editingNick = null;
+        renderFriends();
+      }
+    };
+    queueMicrotask(() => input.focus());
+  }
+  li.querySelector('.edit').onclick = () => {
+    if (input) return saveNick();
+    editingNick = f.id;
+    renderFriends();
+  };
+  li.querySelector('.delete').onclick = (e) => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = t('removeConfirm');
+      setTimeout(() => btn.isConnected && renderFriends(), 3000);
+      return;
+    }
+    friendsCall(async () => {
+      await removeFriend(friends.code, f.id);
+      friends.friends = friends.friends.filter((x) => x.id !== f.id);
+      delete friends.nicknames[f.id];
+      commitFriends();
+    });
+  };
+  return li;
+}
+
+function commitFriends() {
+  saveFriends(friends);
+  renderFriends();
+}
+
+// Runs a server call, turning failures into a toast. `messages` maps HTTP statuses (0 for
+// no connection) to string keys; a 401 on a signed-in call means the profile was deleted elsewhere.
+async function friendsCall(fn, messages = {}) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!(err instanceof ServerError)) throw err;
+    // A null message keeps a background call quiet, e.g. a refresh while offline.
+    if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
+    if (err.status === 401 && friends.me) {
+      friends = { ...friends, code: '', me: null, friends: [], sent: '' };
+      commitFriends();
+      return toast(t('profileGone'));
+    }
+    toast(t(err.status === 0 ? 'offline' : 'serverError'));
+  }
+}
+
+async function refreshFriends() {
+  if (!friends.me) return;
+  refreshFriends.last = Date.now();
+  await friendsCall(async () => {
+    const { me, friends: list } = await fetchMe(friends.code);
+    friends.me = me;
+    friends.friends = list;
+    commitFriends();
+  }, { 0: null });
+}
+
+// Friends see level and streak, so send them whenever they change (shortly after, so a
+// burst of check-ins makes one request).
+let statsTimer;
+function sendStatsSoon(delay = 1500) {
+  if (!friends.me) return;
+  clearTimeout(statsTimer);
+  statsTimer = setTimeout(async () => {
+    const stats = sharedStats(state.habits, state.completions);
+    const key = JSON.stringify(stats);
+    if (key === friends.sent) return;
+    await friendsCall(async () => {
+      await sendStats(friends.code, stats);
+      friends.sent = key;
+      saveFriends(friends);
+    }, { 0: null });
+  }, delay);
+}
+
+async function signedIn(code, data, message) {
+  friends = { ...friends, code, me: data.me, friends: data.friends || [], sent: '' };
+  commitFriends();
+  toast(t(message, { name: nameOf(data.me) }));
+  sendStatsSoon(0);
+  if (pendingInvite) lookUpInvite(pendingInvite);
+}
+
+$('#reroll').onclick = () => {
+  const old = joinName;
+  do joinName = randomName();
+  while (joinName.adj === old.adj && joinName.animal === old.animal);
+  renderFriends();
+};
+
+$('#join').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    friendsCall(async () => {
+      const { code, me } = await createProfile(joinName);
+      $('#recovery-box').hidden = false;
+      await signedIn(code, { me }, 'welcome');
+    }),
+  );
+
+$('#show-restore').onclick = () => {
+  $('#restore').hidden = !$('#restore').hidden;
+  if (!$('#restore').hidden) $('#restore-code').focus();
+};
+
+$('#restore-btn').onclick = (e) => {
+  const code = normalizeCode($('#restore-code').value);
+  if (!isCode(code, RECOVERY_LENGTH)) return toast(t('wrongRecovery'));
+  busy(e.currentTarget, () =>
+    friendsCall(async () => {
+      const data = await fetchMe(code);
+      $('#restore-code').value = '';
+      await signedIn(code, data, 'restored');
+    }, { 401: 'wrongRecovery' }),
+  );
+};
+
+$('#invite-btn').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    friendsCall(async () => {
+      const { code } = await createInvite(friends.code);
+      friends.invite = code;
+      $('#invite-code').textContent = formatCode(code);
+      $('#invite-box').hidden = false;
+    }),
+  );
+
+$('#share-invite').onclick = async () => {
+  const code = formatCode(friends.invite);
+  const url = `${location.origin}${location.pathname}#invite=${friends.invite}`;
+  const text = t('inviteShare', { code, url });
+  try {
+    if (navigator.share) return await navigator.share({ text });
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+  }
+  copyText(text);
+};
+
+$('#copy-recovery').onclick = () => copyText(formatCode(friends.code));
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(t('copied'));
+  } catch {
+    toast(t('copyByHand'));
+  }
+}
+
+// Looking up an invite shows who sent it; nothing is linked until "Add friend".
+async function lookUpInvite(raw) {
+  pendingInvite = null;
+  const code = normalizeCode(raw);
+  if (!isCode(code, INVITE_LENGTH)) return toast(t('inviteNotFound'));
+  await friendsCall(async () => {
+    const { profile } = await previewInvite(friends.code, code);
+    preview = { code, profile };
+    renderFriends();
+  }, { 404: 'inviteNotFound', 409: 'ownInvite' });
+}
+
+$('#add-friend').onclick = (e) => busy(e.currentTarget, () => lookUpInvite($('#add-code').value));
+$('#add-code').onkeydown = (e) => e.key === 'Enter' && $('#add-friend').click();
+
+$('#add-cancel').onclick = () => {
+  preview = null;
+  renderFriends();
+};
+
+$('#add-ok').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    friendsCall(async () => {
+      const { friend } = await acceptInvite(friends.code, preview.code);
+      preview = null;
+      $('#add-code').value = '';
+      friends.friends = [...friends.friends.filter((f) => f.id !== friend.id), friend];
+      commitFriends();
+      toast(t('friendAdded', { name: nameOf(friend) }));
+    }, { 404: 'inviteNotFound', 409: 'ownInvite' }),
+  );
+
+$('#show-recovery').onclick = () => {
+  $('#recovery-box').hidden = !$('#recovery-box').hidden;
+  renderFriends();
+};
+
+$('#leave').onclick = (e) => {
+  const btn = e.currentTarget;
+  if (!btn.classList.contains('armed')) {
+    btn.classList.add('armed');
+    btn.textContent = t('deleteProfileConfirm');
+    setTimeout(() => {
+      btn.classList.remove('armed');
+      btn.textContent = t('deleteProfile');
+    }, 3000);
+    return;
+  }
+  btn.classList.remove('armed');
+  btn.textContent = t('deleteProfile');
+  friendsCall(async () => {
+    await deleteProfile(friends.code);
+    friends = { code: '', me: null, friends: [], nicknames: {}, sent: '' };
+    $('#recovery-box').hidden = true;
+    $('#invite-box').hidden = true;
+    commitFriends();
+    toast(t('profileDeleted'));
+  });
+};
+
+// Disables a button while its request runs, so a double tap doesn't send twice.
+async function busy(btn, fn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    await fn();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// An invite link (…#invite=CODE) opens the Friends section with the code filled in.
+let pendingInvite = null;
+const inviteInLink = location.hash.match(/^#invite=([\w-]+)$/);
+if (inviteInLink && friendsEnabled()) {
+  history.replaceState(null, '', location.pathname + location.search);
+  $('#friends-section').open = true;
+  $('#add-code').value = formatCode(normalizeCode(inviteInLink[1]));
+  if (friends.me) lookUpInvite(inviteInLink[1]);
+  else {
+    pendingInvite = inviteInLink[1];
+    toast(t('joinFirst'));
+  }
+}
+
+$('#friends-section').addEventListener('toggle', (e) => e.currentTarget.open && refreshFriends());
+
 function checkReminders() {
   // With the push server on, it sends the reminders (even while the app is closed).
   if (pushActive()) return;
@@ -389,11 +707,18 @@ function checkReminders() {
   save(state);
 }
 
-// Re-render on focus so "today" rolls over if the app was left open past midnight.
-window.addEventListener('focus', render);
+// Re-render on focus so "today" rolls over if the app was left open past midnight, and
+// fetch friends' latest streaks (at most once a minute).
+window.addEventListener('focus', () => {
+  render();
+  if (Date.now() - (refreshFriends.last || 0) > 60_000) refreshFriends();
+});
 setInterval(checkReminders, 30_000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
+renderFriends();
+refreshFriends();
+sendStatsSoon();
 checkReminders();
 enablePush(state);

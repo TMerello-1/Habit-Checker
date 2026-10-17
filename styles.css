@@ -162,3 +162,30 @@ button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
 .confirm .confirm-emoji { font-size: 40px; margin: 0 0 4px; color: inherit; }
 .confirm .row { justify-content: center; gap: 8px; }
 .confirm .cancel { font: inherit; padding: 9px 16px; }
+
+/* Friends */
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 12px; }
+.panel[hidden], .code-box[hidden], .row[hidden] { display: none; }
+.panel p { margin: 0; }
+.profile { display: flex; align-items: center; gap: 12px; }
+.profile .name { display: flex; flex-direction: column; }
+.profile small { color: var(--muted); font-size: 13px; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; background: var(--accent-fill);
+}
+.friend .avatar { width: 34px; height: 34px; font-size: 13px; }
+.friend .nick { width: 100%; }
+.primary, .secondary { font: inherit; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+.primary { background: var(--accent-fill); color: #fff; border: none; }
+.secondary { background: none; color: var(--accent); border: 1px solid var(--accent); }
+.primary:disabled, .secondary:disabled { opacity: 0.6; cursor: wait; }
+.link { font: inherit; font-size: 14px; background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; justify-self: start; }
+.link.danger { color: var(--muted); }
+.link.danger.armed { color: #dc2626; font-weight: 600; }
+.code-box { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; }
+.code-box code { font: 600 20px/1.3 ui-monospace, monospace; letter-spacing: 1px; user-select: all; word-break: break-all; }
+.code-box .row { justify-content: flex-end; }
+.code-input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; text-transform: uppercase; }
+.code-input::placeholder { text-transform: none; font-family: system-ui, sans-serif; }
+.code-box .row button { flex: 1 1 auto; }

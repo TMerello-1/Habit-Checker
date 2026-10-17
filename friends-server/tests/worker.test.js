@@ -1,0 +1,143 @@
+import assert from 'node:assert/strict';
+import { beforeEach, test } from 'node:test';
+import { formatCode } from '../../src/codes.js';
+import worker, { nameNumber } from '../src/worker.js';
+import { fakeD1 } from './fake-d1.js';
+
+let env;
+beforeEach(() => {
+  env = { DB: fakeD1() };
+});
+
+async function call(method, path, { body, code } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (code) headers.Authorization = `Bearer ${code}`;
+  const res = await worker.fetch(
+    new Request(`https://friends.test${path}`, { method, headers, body: body && JSON.stringify(body) }),
+    env,
+  );
+  return { status: res.status, body: await res.json() };
+}
+
+const join = async (adj = 0, animal = 0) => (await call('POST', '/profiles', { body: { adj, animal } })).body;
+
+test('a new profile gets its name and a recovery code that signs it in', async () => {
+  const { code, me } = await join(3, 5);
+  assert.deepEqual(me.name, { adj: 3, animal: 5, num: 0 });
+  assert.equal(code.length, 20);
+  const res = await call('GET', '/me', { code });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.me.id, me.id);
+  assert.deepEqual(res.body.friends, []);
+  assert.ok(!JSON.stringify(res.body).includes('token'));
+});
+
+test('the code works typed with dashes, lowercase and look-alike letters', async () => {
+  const { code, me } = await join();
+  const typed = formatCode(code).toLowerCase().replace(/0/g, 'o').replace(/1/g, 'l');
+  assert.equal((await call('GET', '/me', { code: typed })).body.me.id, me.id);
+});
+
+test('a taken name gets a number, so names stay unique', async () => {
+  const first = await join(1, 1);
+  const second = await join(1, 1);
+  const third = await join(1, 1);
+  assert.equal(first.me.name.num, 0);
+  assert.ok(second.me.name.num >= 2 && second.me.name.num <= 99);
+  assert.notEqual(third.me.name.num, second.me.name.num);
+});
+
+test('nameNumber tries no number, then 2-99, then up to 9999', () => {
+  assert.equal(nameNumber(0), 0);
+  assert.equal(nameNumber(1, () => 0), 2);
+  assert.equal(nameNumber(20, () => 0.9999), 99);
+  assert.equal(nameNumber(21, () => 0), 100);
+  assert.equal(nameNumber(59, () => 0.9999), 9999);
+});
+
+test('rejects names outside the lists and unknown or missing codes', async () => {
+  assert.equal((await call('POST', '/profiles', { body: { adj: 9999, animal: 0 } })).status, 400);
+  assert.equal((await call('POST', '/profiles', { body: { adj: 1.5, animal: 0 } })).status, 400);
+  assert.equal((await call('GET', '/me')).status, 401);
+  assert.equal((await call('GET', '/me', { code: 'A'.repeat(20) })).status, 401);
+});
+
+test('an invite links both profiles once accepted, and friends see level and streak', async () => {
+  const tom = await join(0, 0);
+  const ana = await join(2, 9);
+  await call('PUT', '/me/stats', { code: tom.code, body: { level: 3, streak: 12 } });
+
+  const invite = await call('POST', '/invites', { code: tom.code });
+  assert.equal(invite.status, 201);
+  assert.equal(invite.body.code.length, 8);
+  // Asking again hands out the same open invite.
+  assert.equal((await call('POST', '/invites', { code: tom.code })).body.code, invite.body.code);
+
+  const preview = await call('GET', `/invites/${formatCode(invite.body.code)}`, { code: ana.code });
+  assert.equal(preview.body.profile.id, tom.me.id);
+  assert.equal(preview.body.alreadyFriends, false);
+  // Looking at an invite links nothing yet.
+  assert.deepEqual((await call('GET', '/me', { code: ana.code })).body.friends, []);
+
+  const accepted = await call('POST', `/invites/${invite.body.code}/accept`, { code: ana.code });
+  assert.equal(accepted.body.friend.id, tom.me.id);
+
+  const anaView = (await call('GET', '/me', { code: ana.code })).body.friends;
+  assert.equal(anaView.length, 1);
+  assert.equal(anaView[0].level, 3);
+  assert.equal(anaView[0].streak, 12);
+  assert.deepEqual(Object.keys(anaView[0]).sort(), ['id', 'level', 'name', 'streak', 'updatedAt']);
+  assert.equal((await call('GET', '/me', { code: tom.code })).body.friends[0].id, ana.me.id);
+
+  // Single use: the code is gone, and the next invite is a new one.
+  assert.equal((await call('POST', `/invites/${invite.body.code}/accept`, { code: ana.code })).status, 404);
+  assert.notEqual((await call('POST', '/invites', { code: tom.code })).body.code, invite.body.code);
+});
+
+test("you can't accept your own invite", async () => {
+  const tom = await join();
+  const { code } = (await call('POST', '/invites', { code: tom.code })).body;
+  assert.equal((await call('POST', `/invites/${code}/accept`, { code: tom.code })).status, 409);
+});
+
+test('expired invites no longer work', async () => {
+  const tom = await join();
+  const ana = await join(1, 1);
+  const { code } = (await call('POST', '/invites', { code: tom.code })).body;
+  env.DB.raw.prepare('UPDATE invites SET expires_at = ?').run('2000-01-01T00:00:00.000Z');
+  assert.equal((await call('GET', `/invites/${code}`, { code: ana.code })).status, 404);
+  assert.equal((await call('POST', `/invites/${code}/accept`, { code: ana.code })).status, 404);
+});
+
+test('removing a friend unlinks both sides', async () => {
+  const tom = await join();
+  const ana = await join(1, 1);
+  const { code } = (await call('POST', '/invites', { code: tom.code })).body;
+  await call('POST', `/invites/${code}/accept`, { code: ana.code });
+  await call('DELETE', `/friends/${tom.me.id}`, { code: ana.code });
+  assert.deepEqual((await call('GET', '/me', { code: tom.code })).body.friends, []);
+  assert.deepEqual((await call('GET', '/me', { code: ana.code })).body.friends, []);
+});
+
+test('deleting a profile removes it from friends and frees its name', async () => {
+  const tom = await join(4, 4);
+  const ana = await join(1, 1);
+  const { code } = (await call('POST', '/invites', { code: tom.code })).body;
+  await call('POST', `/invites/${code}/accept`, { code: ana.code });
+  await call('DELETE', '/me', { code: tom.code });
+  assert.equal((await call('GET', '/me', { code: tom.code })).status, 401);
+  assert.deepEqual((await call('GET', '/me', { code: ana.code })).body.friends, []);
+  assert.equal((await join(4, 4)).me.name.num, 0);
+});
+
+test('stats must be sensible whole numbers', async () => {
+  const { code } = await join();
+  assert.equal((await call('PUT', '/me/stats', { code, body: { level: -1, streak: 2 } })).status, 400);
+  assert.equal((await call('PUT', '/me/stats', { code, body: { level: 2, streak: 'x' } })).status, 400);
+});
+
+test('answers CORS preflights for the app', async () => {
+  const res = await worker.fetch(new Request('https://friends.test/me', { method: 'OPTIONS' }), env);
+  assert.equal(res.status, 204);
+  assert.match(res.headers.get('Access-Control-Allow-Headers'), /Authorization/);
+});

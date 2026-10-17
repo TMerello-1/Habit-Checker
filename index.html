@@ -36,6 +36,52 @@
       <ul id="badges" class="badges"></ul>
     </section>
 
+    <details id="friends-section" class="fold" hidden>
+      <summary><h2><span data-i18n="friends">Friends</span> <small id="friends-count"></small></h2></summary>
+      <div id="friends-join" class="panel" hidden>
+        <p class="muted" data-i18n="friendsIntro">Pick an anonymous name to add friends. They only see your name, level and best streak, never your habits.</p>
+        <div class="profile"><span class="avatar" id="join-avatar" aria-hidden="true"></span><b id="join-name"></b></div>
+        <div class="row">
+          <button type="button" id="reroll" class="secondary" data-i18n="reroll">🎲 Another name</button>
+          <button type="button" id="join" class="primary" data-i18n="pickName">Pick this name</button>
+        </div>
+        <button type="button" id="show-restore" class="link" data-i18n="haveProfile">Already have a profile? Enter your recovery code</button>
+        <div id="restore" class="row" hidden>
+          <input id="restore-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" aria-label="Recovery code" data-i18n-aria-label="recoveryCode">
+          <button type="button" id="restore-btn" class="primary" data-i18n="restore">Restore</button>
+        </div>
+      </div>
+      <div id="friends-main" class="panel" hidden>
+        <div class="profile"><span class="avatar" id="me-avatar" aria-hidden="true"></span><span class="name"><b id="me-name"></b><small id="me-stats"></small></span></div>
+        <ul id="friend-list" class="list"></ul>
+        <p id="no-friends" class="muted" data-i18n="noFriends">No friends yet. Invite someone, or enter the code a friend sent you.</p>
+        <button type="button" id="invite-btn" class="primary" data-i18n="invite">👋 Invite a friend</button>
+        <div id="invite-box" class="code-box" hidden>
+          <p class="muted" data-i18n="inviteHelp">Send your friend this code. It works once, for 7 days.</p>
+          <code id="invite-code"></code>
+          <button type="button" id="share-invite" class="secondary" data-i18n="share">Share</button>
+        </div>
+        <div class="row">
+          <input id="add-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code" aria-label="Friend's code" data-i18n-placeholder="friendCode" data-i18n-aria-label="friendCode">
+          <button type="button" id="add-friend" class="secondary" data-i18n="addFriend">Add</button>
+        </div>
+        <div id="add-preview" class="code-box" hidden>
+          <div class="profile"><span class="avatar" id="add-avatar" aria-hidden="true"></span><span id="add-preview-text"></span></div>
+          <div class="row">
+            <button type="button" id="add-cancel" class="cancel" data-i18n="cancel">Cancel</button>
+            <button type="button" id="add-ok" class="primary" data-i18n="addFriendOk">Add friend</button>
+          </div>
+        </div>
+        <button type="button" id="show-recovery" class="link" data-i18n="showRecovery">🔑 Show my recovery code</button>
+        <div id="recovery-box" class="code-box" hidden>
+          <p class="muted" data-i18n="recoveryHelp">Save this code somewhere safe. It's the only way to get your profile and friends back on a new phone.</p>
+          <code id="recovery-code"></code>
+          <button type="button" id="copy-recovery" class="secondary" data-i18n="copy">Copy</button>
+        </div>
+        <button type="button" id="leave" class="link danger" data-i18n="deleteProfile">Delete my profile</button>
+      </div>
+    </details>
+
     <details id="form-section" class="fold">
       <summary><h2 id="form-title" data-i18n="newHabit">New habit</h2></summary>
       <form id="add-form">
