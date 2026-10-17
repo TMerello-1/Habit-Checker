@@ -49,6 +49,14 @@ export async function enablePush(state) {
   }
 }
 
+// This device's push endpoint once the server has its subscription, else null. Admins
+// register it with the friends server to get a push for new feedback.
+export async function pushEndpoint() {
+  if (!active) return null;
+  const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+  return sub?.endpoint ?? null;
+}
+
 // Call after every change; sends the latest schedule to the server shortly after.
 export function syncPush(state) {
   if (!active) return;

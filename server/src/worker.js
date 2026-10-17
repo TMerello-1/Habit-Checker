@@ -9,6 +9,12 @@
 //   "index"     JSON array of every <id>, so the cron reads one key instead of listing
 //               (KV's free plan allows far more reads than list calls).
 // Secret VAPID_JWK holds the VAPID private key; the deploy workflow creates it once.
+//
+// The friends server (friends-server/) also sends through here, over a service binding, to
+// tell admins about new feedback: POST https://internal/notify { endpoints, message }.
+// Only already-subscribed endpoints get it. The "internal" host can't be reached from the
+// internet (Cloudflare routes public requests by their real hostname), so only the binding
+// can call it.
 
 import { dueHabits, isValidTimeZone, localClock } from './schedule.js';
 import { sendPush, vapidPublicKey } from './webpush.js';
@@ -172,9 +178,48 @@ export async function runReminders(env, now = new Date()) {
   return sent;
 }
 
+// Sends one message to each endpoint that is subscribed here. Answers with the endpoints
+// that aren't (or no longer are), so the caller can stop asking for them.
+export async function notify(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!Array.isArray(body?.endpoints) || typeof body.message?.title !== 'string') return json({ error: 'invalid request' }, 400);
+  const message = {
+    title: str(body.message.title, 120),
+    body: str(body.message.body, 200),
+    tag: str(body.message.tag, 64),
+    url: str(body.message.url, 200),
+  };
+  const jwk = JSON.parse(env.VAPID_JWK);
+  const unknown = [];
+  let sent = 0;
+  for (const endpoint of body.endpoints.slice(0, 20)) {
+    if (typeof endpoint !== 'string') continue;
+    const id = await subId(endpoint);
+    const record = await env.SUBS.get(`sub:${id}`, 'json');
+    if (!record) {
+      unknown.push(endpoint);
+      continue;
+    }
+    const status = await sendPush(record.subscription, message, { jwk, subject: env.VAPID_SUBJECT }).catch((err) => {
+      console.error('push failed', id, err);
+      return 0;
+    });
+    if (status === 404 || status === 410) {
+      await forget(env, id);
+      unknown.push(endpoint);
+    } else if (status >= 200 && status < 300) sent++;
+    else console.error('push rejected', id, status);
+  }
+  return json({ sent, unknown });
+}
+
 export default {
   async fetch(request, env) {
-    const { pathname } = new URL(request.url);
+    const { hostname, pathname } = new URL(request.url);
+    if (hostname === 'internal') {
+      if (request.method === 'POST' && pathname === '/notify' && env.VAPID_JWK) return notify(request, env);
+      return json({ error: 'not found' }, 404);
+    }
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (request.method === 'GET' && pathname === '/vapid-public-key') {
       if (!env.VAPID_JWK) return json({ error: 'server not set up yet' }, 503);

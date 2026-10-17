@@ -150,3 +150,32 @@ test('serves the VAPID public key', async () => {
   const { key } = await res.json();
   assert.equal(key.length, 87); // 65 bytes, base64url
 });
+
+test('the friends server can notify subscribed endpoints, but only through the internal host', async () => {
+  const { env, post } = await setup();
+  await post('/subscribe', { subscription, timeZone: 'UTC', habits: [] });
+  const stranger = 'https://fcm.googleapis.com/fcm/send/nobody';
+  const calls = mockPushService(201);
+  const message = { title: '💬 New feedback', body: 'More badges', tag: 'feedback', url: '#inbox' };
+  const call = (host) =>
+    worker.fetch(new Request(`https://${host}/notify`, { method: 'POST', body: JSON.stringify({ endpoints: [subscription.endpoint, stranger], message }) }), env);
+
+  assert.equal((await call('push.test')).status, 404);
+  assert.equal(calls.length, 0);
+
+  const res = await call('internal');
+  assert.deepEqual(await res.json(), { sent: 1, unknown: [stranger] });
+  assert.equal(calls[0].url, subscription.endpoint);
+});
+
+test('notify reports an expired endpoint as unknown and forgets it', async () => {
+  const { env, post } = await setup();
+  await post('/subscribe', { subscription, timeZone: 'UTC', habits: [] });
+  mockPushService(410);
+  const res = await worker.fetch(
+    new Request('https://internal/notify', { method: 'POST', body: JSON.stringify({ endpoints: [subscription.endpoint], message: { title: 'x' } }) }),
+    env,
+  );
+  assert.deepEqual(await res.json(), { sent: 0, unknown: [subscription.endpoint] });
+  assert.deepEqual(JSON.parse(env.SUBS.m.get('index')), []);
+});

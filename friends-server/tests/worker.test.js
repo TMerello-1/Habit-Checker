@@ -179,3 +179,47 @@ test('feedback must be 1 to 2000 characters, and one sender can send 5 an hour',
   for (let i = 0; i < 5; i++) assert.equal((await call('POST', '/feedback', { body: { text: `note ${i}` } })).status, 201);
   assert.equal((await call('POST', '/feedback', { body: { text: 'one more' } })).status, 429);
 });
+
+test('new feedback is pushed to registered admin devices, in each admin\'s language', async () => {
+  const tom = await join(4, 7);
+  const ana = await join(2, 9);
+  env.ADMINS = '4.7.0';
+  const pushed = [];
+  env.PUSH = {
+    fetch: async (url, init) => {
+      pushed.push({ url, ...JSON.parse(init.body) });
+      return Response.json({ sent: 1, unknown: ['https://fcm.googleapis.com/fcm/send/old'] });
+    },
+  };
+  const device = (code, endpoint, title) => call('PUT', '/admin/device', { code, body: { endpoint, title } });
+  assert.equal((await device(ana.code, 'https://fcm.googleapis.com/fcm/send/ana', 'x')).status, 403);
+  assert.equal((await device(tom.code, 'https://fcm.googleapis.com/fcm/send/tom', '💬 Neues Feedback')).status, 200);
+  assert.equal((await device(tom.code, 'https://fcm.googleapis.com/fcm/send/old', '💬 Neues Feedback')).status, 200);
+  assert.equal((await device(tom.code, 'not a url', 'x')).status, 400);
+
+  await call('POST', '/feedback', { body: { text: 'y'.repeat(300) } });
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].url, 'https://internal/notify');
+  assert.deepEqual(pushed[0].endpoints.sort(), ['https://fcm.googleapis.com/fcm/send/old', 'https://fcm.googleapis.com/fcm/send/tom']);
+  assert.equal(pushed[0].message.title, '💬 Neues Feedback');
+  assert.equal(pushed[0].message.body.length, 140);
+  assert.equal(pushed[0].message.url, '#inbox');
+
+  // The push server said "old" is gone, so it isn't asked for again.
+  await call('POST', '/feedback', { body: { text: 'again' } });
+  assert.deepEqual(pushed[1].endpoints, ['https://fcm.googleapis.com/fcm/send/tom']);
+
+  // Taken off ADMINS: no more pushes, even with the device still listed.
+  env.ADMINS = '';
+  await call('POST', '/feedback', { body: { text: 'third' } });
+  assert.equal(pushed.length, 2);
+});
+
+test('feedback is still saved when the push server fails', async () => {
+  const tom = await join(4, 7);
+  env.ADMINS = '4.7.0';
+  env.PUSH = { fetch: async () => new Response('down', { status: 500 }) };
+  await call('PUT', '/admin/device', { code: tom.code, body: { endpoint: 'https://fcm.googleapis.com/fcm/send/tom' } });
+  assert.equal((await call('POST', '/feedback', { body: { text: 'hello' } })).status, 201);
+  assert.equal((await call('GET', '/feedback', { code: tom.code })).body.feedback.length, 1);
+});

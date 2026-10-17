@@ -16,3 +16,8 @@ database_id = "D1_DATABASE_ID"
 # the holder of that profile's recovery code signs in as it. If an admin deletes their
 # profile, take the name out here, or whoever gets the name next would see the inbox.
 ADMINS = "35.23.0"  # Rosy Alpaca
+
+# The push server (server/), which sends admins a notification for new feedback.
+[[services]]
+binding = "PUSH"
+service = "habit-checker-push"

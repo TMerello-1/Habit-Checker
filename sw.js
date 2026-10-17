@@ -1,6 +1,6 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v21';
+const CACHE = 'habit-checker-v22';
 const ASSETS = [
   './',
   'index.html',
@@ -54,16 +54,21 @@ self.addEventListener('push', (e) => {
       body: data.body || 'Time for a habit!',
       tag: data.tag,
       icon: 'icons/icon.svg',
+      data: { url: data.url },
     }),
   );
 });
 
-// Tapping a reminder focuses the open app, or opens it.
+// Tapping a reminder focuses the open app, or opens it. A push can carry a link within
+// the app (like "#inbox" for new feedback), which the open app follows too.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const url = new URL(e.notification.data?.url || './', self.registration.scope).href;
   e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((wins) =>
-      wins.length ? wins[0].focus() : self.clients.openWindow('./'),
-    ),
+    self.clients.matchAll({ type: 'window' }).then((wins) => {
+      if (!wins.length) return self.clients.openWindow(url);
+      if (e.notification.data?.url) wins[0].navigate(url);
+      return wins[0].focus();
+    }),
   );
 });
