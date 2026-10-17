@@ -23,14 +23,20 @@ public class MainActivity extends Activity {
     static final String START_URL = "https://tmerello-1.github.io/Habit-Checker/";
     private static final String HOST = Uri.parse(START_URL).getHost();
 
-    // Wraps localStorage.setItem so every save of the app state is passed to the bridge.
+    // Wraps localStorage.setItem so every save of the app state is passed to the bridge, and
+    // each save of the friends data too (FeedbackJob needs to know about admin profiles).
     private static final String BRIDGE_JS = "(function () {"
             + "  if (window.__habitBridge) return; window.__habitBridge = true;"
-            + "  var KEY = 'habit-checker:v1';"
+            + "  var KEY = 'habit-checker:v1', FRIENDS = 'habit-checker:friends';"
             + "  var push = function () { HabitCheckerBridge.saveState(localStorage.getItem(KEY) || ''); };"
+            + "  var pushFriends = function () { HabitCheckerBridge.saveFriends(localStorage.getItem(FRIENDS) || '{}'); };"
             + "  var setItem = Storage.prototype.setItem;"
-            + "  Storage.prototype.setItem = function (k) { setItem.apply(this, arguments); if (k === KEY) push(); };"
-            + "  push();"
+            + "  Storage.prototype.setItem = function (k) {"
+            + "    setItem.apply(this, arguments);"
+            + "    if (k === KEY) push();"
+            + "    if (k === FRIENDS) pushFriends();"
+            + "  };"
+            + "  push(); pushFriends();"
             + "})();";
 
     private WebView web;
@@ -114,6 +120,11 @@ public class MainActivity extends Activity {
             if (json == null || json.isEmpty() || json.equals(Store.state(MainActivity.this))) return;
             Store.saveState(MainActivity.this, json);
             Reminders.update(getApplicationContext());
+        }
+
+        @JavascriptInterface
+        public void saveFriends(String json) {
+            FeedbackJob.update(getApplicationContext(), json);
         }
     }
 }

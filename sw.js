@@ -1,6 +1,6 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v22';
+const CACHE = 'habit-checker-v23';
 const ASSETS = [
   './',
   'index.html',

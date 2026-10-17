@@ -729,12 +729,10 @@ function openInbox() {
     ({ feedback: inbox } = await fetchFeedback(friends.code));
     renderInbox();
   });
+  // The Android app checks for new feedback itself (FeedbackJob), so the hint is web-only.
   pushEndpoint()
     .catch(() => null)
-    .then((endpoint) => {
-      $('#inbox-push-hint').hidden = Boolean(endpoint);
-      $('#inbox-push-hint').textContent = t(androidApp ? 'inboxPushAndroid' : 'inboxPushHint');
-    });
+    .then((endpoint) => ($('#inbox-push-hint').hidden = Boolean(endpoint) || androidApp));
 }
 
 // An admin's device with push reminders on registers its push endpoint, so the server
