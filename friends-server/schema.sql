@@ -28,3 +28,15 @@ CREATE TABLE IF NOT EXISTS invites (
   profile_id TEXT NOT NULL UNIQUE,
   expires_at TEXT NOT NULL
 );
+
+-- Feedback sent from the app's ⋮ menu. Anonymous: no profile is attached. ip_hash (a
+-- SHA-256 of the sender's address) only limits how often one sender can post.
+CREATE TABLE IF NOT EXISTS feedback (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  lang TEXT NOT NULL,
+  platform TEXT NOT NULL,           -- 'web' or 'android'
+  ip_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feedback_by_sender ON feedback (ip_hash, created_at);

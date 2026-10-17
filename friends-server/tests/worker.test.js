@@ -141,3 +141,41 @@ test('answers CORS preflights for the app', async () => {
   assert.equal(res.status, 204);
   assert.match(res.headers.get('Access-Control-Allow-Headers'), /Authorization/);
 });
+
+test('anyone can send feedback; only profiles named in ADMINS can read and clear it', async () => {
+  const tom = await join(4, 7);
+  const ana = await join(2, 9);
+  env.ADMINS = ' 9.9.9 , 4.7.0';
+  assert.equal((await call('GET', '/me', { code: tom.code })).body.admin, true);
+  assert.equal((await call('GET', '/me', { code: ana.code })).body.admin, false);
+
+  const sent = await call('POST', '/feedback', { body: { text: '  More badges please ', lang: 'de', platform: 'android' } });
+  assert.equal(sent.status, 201);
+  assert.equal((await call('POST', '/feedback', { body: { text: 'Hi', platform: 'ios', lang: 'Klingon' } })).status, 201);
+
+  assert.equal((await call('GET', '/feedback', { code: ana.code })).status, 403);
+  assert.equal((await call('GET', '/feedback')).status, 401);
+  const inbox = await call('GET', '/feedback', { code: tom.code });
+  assert.equal(inbox.status, 200);
+  assert.deepEqual(
+    inbox.body.feedback.map(({ text, lang, platform }) => ({ text, lang, platform })).sort((a, b) => a.text.localeCompare(b.text)),
+    [
+      { text: 'Hi', lang: 'en', platform: 'web' },
+      { text: 'More badges please', lang: 'de', platform: 'android' },
+    ],
+  );
+  assert.ok(!JSON.stringify(inbox.body).includes('ip'));
+
+  const id = inbox.body.feedback[0].id;
+  assert.equal((await call('DELETE', `/feedback/${id}`, { code: ana.code })).status, 403);
+  assert.equal((await call('DELETE', `/feedback/${id}`, { code: tom.code })).status, 200);
+  assert.equal((await call('GET', '/feedback', { code: tom.code })).body.feedback.length, 1);
+});
+
+test('feedback must be 1 to 2000 characters, and one sender can send 5 an hour', async () => {
+  assert.equal((await call('POST', '/feedback', { body: { text: '   ' } })).status, 400);
+  assert.equal((await call('POST', '/feedback', { body: { text: 'x'.repeat(2001) } })).status, 400);
+  assert.equal((await call('POST', '/feedback', { body: {} })).status, 400);
+  for (let i = 0; i < 5; i++) assert.equal((await call('POST', '/feedback', { body: { text: `note ${i}` } })).status, 201);
+  assert.equal((await call('POST', '/feedback', { body: { text: 'one more' } })).status, 429);
+});

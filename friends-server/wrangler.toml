@@ -9,3 +9,10 @@ workers_dev = true
 binding = "DB"
 database_name = "habit-checker-friends"
 database_id = "D1_DATABASE_ID"
+
+[vars]
+# Profiles that may read the feedback inbox in the app, by name: "adj.animal.num" with the
+# positions in src/names.js (num 0 = no number), comma-separated. Names are unique, so only
+# the holder of that profile's recovery code signs in as it. If an admin deletes their
+# profile, take the name out here, or whoever gets the name next would see the inbox.
+ADMINS = ""

@@ -9,7 +9,8 @@ const FRIENDS_KEY = 'habit-checker:friends';
 
 export const friendsEnabled = () => Boolean(FRIENDS_SERVER);
 
-const noFriends = () => ({ code: '', me: null, friends: [], nicknames: {}, sent: '' });
+// `admin` (from GET /me) shows the feedback inbox in the ⋮ menu.
+const noFriends = () => ({ code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '' });
 
 export function loadFriends() {
   try {
@@ -58,3 +59,7 @@ export const createInvite = (code) => api('POST', '/invites', { code });
 export const previewInvite = (code, invite) => api('GET', `/invites/${encodeURIComponent(invite)}`, { code });
 export const acceptInvite = (code, invite) => api('POST', `/invites/${encodeURIComponent(invite)}/accept`, { code });
 export const removeFriend = (code, id) => api('DELETE', `/friends/${encodeURIComponent(id)}`, { code });
+// Feedback needs no profile; reading and clearing it needs an admin profile.
+export const sendFeedback = (feedback) => api('POST', '/feedback', { body: feedback });
+export const fetchFeedback = (code) => api('GET', '/feedback', { code });
+export const deleteFeedback = (code, id) => api('DELETE', `/feedback/${encodeURIComponent(id)}`, { code });
