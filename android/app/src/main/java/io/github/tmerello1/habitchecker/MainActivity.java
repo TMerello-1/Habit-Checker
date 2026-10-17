@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState == null) web.loadUrl(START_URL);
+        if (savedInstanceState == null) web.loadUrl(urlFor(getIntent()));
         else web.restoreState(savedInstanceState);
 
         if (Build.VERSION.SDK_INT >= 33
@@ -72,6 +72,27 @@ public class MainActivity extends Activity {
             requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 1);
         }
         Updater.check(this);
+    }
+
+    // An invite opened while the app is running. Only the #invite hash differs from the
+    // loaded page, so the page handles it on hashchange without reloading.
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getData() != null) web.loadUrl(urlFor(intent));
+    }
+
+    // habitchecker://invite/CODE and links to the site open the matching page; anything else the start page.
+    static String urlFor(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        if (data == null) return START_URL;
+        if ("habitchecker".equals(data.getScheme()) && "invite".equals(data.getHost())) {
+            String code = data.getLastPathSegment();
+            if (code != null && code.matches("[A-Za-z0-9-]{1,32}")) return START_URL + "#invite=" + code;
+        }
+        if ("https".equals(data.getScheme()) && HOST.equals(data.getHost())) return data.toString();
+        return START_URL;
     }
 
     @Override

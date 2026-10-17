@@ -636,6 +636,7 @@ $('#add-ok').onclick = (e) =>
       const { friend } = await acceptInvite(friends.code, preview.code);
       preview = null;
       $('#add-code').value = '';
+      $('#open-in-app').hidden = true;
       friends.friends = [...friends.friends.filter((f) => f.id !== friend.id), friend];
       commitFriends();
       toast(t('friendAdded', { name: nameOf(friend) }));
@@ -681,19 +682,35 @@ async function busy(btn, fn) {
   }
 }
 
-// An invite link (…#invite=CODE) opens the Friends section with the code filled in.
+// An invite link (…#invite=CODE) opens the Friends section with the code filled in and
+// scrolls to it, since the section sits below the fold. It's handled on load and on
+// hashchange, because opening the link while the app is already open (or from the
+// Android app, see MainActivity) only changes the hash and doesn't reload the page.
 let pendingInvite = null;
-const inviteInLink = location.hash.match(/^#invite=([\w-]+)$/);
-if (inviteInLink && friendsEnabled()) {
+function openInviteLink() {
+  const link = location.hash.match(/^#invite=([\w-]+)$/);
+  if (!link || !friendsEnabled()) return;
   history.replaceState(null, '', location.pathname + location.search);
+  const code = normalizeCode(link[1]);
   $('#friends-section').open = true;
-  $('#add-code').value = formatCode(normalizeCode(inviteInLink[1]));
-  if (friends.me) lookUpInvite(inviteInLink[1]);
+  $('#add-code').value = formatCode(code);
+  // An invite opened in an Android browser lands in the browser's storage, not the
+  // Android app's, so offer to hand it to the app (habitchecker://invite/CODE).
+  const inBrowserOnAndroid = /Android/i.test(navigator.userAgent) && !androidApp && !embedded;
+  $('#open-in-app').hidden = !inBrowserOnAndroid;
+  if (inBrowserOnAndroid) {
+    const fallback = encodeURIComponent(`${location.origin}${location.pathname}`);
+    $('#open-in-app-link').href = `intent://invite/${code}#Intent;scheme=habitchecker;package=io.github.tmerello1.habitchecker;S.browser_fallback_url=${fallback};end`;
+  }
+  if (friends.me) lookUpInvite(code);
   else {
-    pendingInvite = inviteInLink[1];
+    pendingInvite = code;
     toast(t('joinFirst'));
   }
+  $('#friends-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+openInviteLink();
+window.addEventListener('hashchange', openInviteLink);
 
 $('#friends-section').addEventListener('toggle', (e) => e.currentTarget.open && refreshFriends());
 

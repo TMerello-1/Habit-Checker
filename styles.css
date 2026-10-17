@@ -189,3 +189,5 @@ button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
 .code-input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; text-transform: uppercase; }
 .code-input::placeholder { text-transform: none; font-family: system-ui, sans-serif; }
 .code-box .row button { flex: 1 1 auto; }
+a.primary { display: block; text-align: center; text-decoration: none; }
+#open-in-app { margin-bottom: 12px; }

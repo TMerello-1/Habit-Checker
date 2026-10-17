@@ -22,6 +22,21 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Invite links: the site's "Open in the app" button sends habitchecker://invite/CODE. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="habitchecker" android:host="invite" />
+            </intent-filter>
+            <!-- The site's own links. Android can't verify a github.io project site, so from
+                 Android 12 these open here only if the user allows it under Open by default. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="tmerello-1.github.io" android:pathPrefix="/Habit-Checker" />
+            </intent-filter>
         </activity>
 
         <receiver
