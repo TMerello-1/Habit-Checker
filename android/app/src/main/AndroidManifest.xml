@@ -51,6 +51,12 @@
                 android:resource="@xml/habit_widget" />
         </receiver>
 
+        <!-- Checks the feedback inbox for admin profiles, see FeedbackJob. -->
+        <service
+            android:name=".FeedbackJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <receiver
             android:name=".AlarmReceiver"
             android:exported="false">

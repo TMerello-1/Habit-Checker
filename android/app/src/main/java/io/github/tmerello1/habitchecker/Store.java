@@ -25,4 +25,22 @@ final class Store {
     static void setNotified(Context ctx, String habitId, String day) {
         prefs(ctx).edit().putString("notified:" + habitId, day).apply();
     }
+
+    /** The recovery code of a signed-in admin profile, for FeedbackJob; empty otherwise. */
+    static String adminCode(Context ctx) {
+        return prefs(ctx).getString("adminCode", "");
+    }
+
+    static void setAdminCode(Context ctx, String code) {
+        prefs(ctx).edit().putString("adminCode", code).apply();
+    }
+
+    /** When the newest feedback FeedbackJob has seen was sent (an ISO timestamp). */
+    static String feedbackSeen(Context ctx) {
+        return prefs(ctx).getString("feedbackSeen", "");
+    }
+
+    static void setFeedbackSeen(Context ctx, String createdAt) {
+        prefs(ctx).edit().putString("feedbackSeen", createdAt).apply();
+    }
 }
