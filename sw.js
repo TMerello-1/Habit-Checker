@@ -1,6 +1,6 @@
 // Cache-first service worker for offline use. Bump CACHE whenever any file in
 // ASSETS changes, or installed users keep running the old version.
-const CACHE = 'habit-checker-v13';
+const CACHE = 'habit-checker-v14';
 const ASSETS = [
   './',
   'index.html',
@@ -12,10 +12,12 @@ const ASSETS = [
   'icons/maskable-512.png',
   'icons/apple-touch-icon.png',
   'src/app.js',
+  'src/config.js',
   'src/dates.js',
   'src/habits.js',
   'src/i18n.js',
   'src/install.js',
+  'src/push.js',
   'src/reminders.js',
   'src/store.js',
   'src/transfer.js',
@@ -39,6 +41,18 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
+});
+
+// Reminders sent by the push server (server/) while the app is closed.
+self.addEventListener('push', (e) => {
+  const data = e.data ? e.data.json() : {};
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Habit Checker', {
+      body: data.body || 'Time for a habit!',
+      tag: data.tag,
+      icon: 'icons/icon.svg',
+    }),
+  );
 });
 
 // Tapping a reminder focuses the open app, or opens it.

@@ -6,6 +6,7 @@ import { dateKey } from './dates.js';
 import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, STREAK_MILESTONES } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
+import { enablePush, pushActive, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { load, loadOpenSections, save, saveOpenSections } from './store.js';
 import { exportData, parseImport } from './transfer.js';
@@ -24,6 +25,7 @@ for (const el of document.querySelectorAll('[data-i18n-day]')) el.textContent = 
 
 function commit() {
   save(state);
+  syncPush(state);
   render();
 }
 
@@ -276,6 +278,7 @@ $('#confirm-done').onclick = (e) => {
 $('#enable-reminders').onclick = async () => {
   await requestPermission();
   render();
+  enablePush(state);
 };
 
 // Chromium browsers fire beforeinstallprompt once the app is installable; keep it
@@ -352,6 +355,8 @@ $('#import-btn').onclick = (e) => {
 };
 
 function checkReminders() {
+  // With the push server on, it sends the reminders (even while the app is closed).
+  if (pushActive()) return;
   for (const h of dueReminders(state)) {
     notify(h);
     state.notified[h.id] = dateKey();
@@ -366,3 +371,4 @@ setInterval(checkReminders, 30_000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 checkReminders();
+enablePush(state);

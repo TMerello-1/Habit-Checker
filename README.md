@@ -14,7 +14,15 @@ npm start   # then open http://localhost:8080
 npm test
 ```
 
-Reminders appear as system notifications while the app is open, after you tap "Turn on reminders".
+Reminders appear as system notifications after you tap "Turn on reminders". In the browser they only fire while the app is open, unless the push server (`server/`, a free Cloudflare Worker) is deployed and its address is in `src/config.js`. On iPhone, push also needs the app added to the home screen (iOS 16.4+). The Android app below has its own reminders and doesn't need the push server.
+
+### Push server setup
+
+1. Create a free Cloudflare account.
+2. In Cloudflare, create an API token from the "Edit Cloudflare Workers" template.
+3. In this GitHub repo, add it under Settings → Secrets and variables → Actions as `CLOUDFLARE_API_TOKEN`.
+4. Run the "Deploy push server" workflow from the Actions tab. Its summary shows the server's address.
+5. Put that address in `src/config.js` as `PUSH_SERVER` (and bump `CACHE` in `sw.js`).
 
 ## Android app and widget
 
