@@ -541,6 +541,7 @@ async function signedIn(code, data, message) {
   commitFriends();
   toast(t(message, { name: nameOf(data.me) }));
   sendStatsSoon(0);
+  $('#invite-elsewhere').hidden = true;
   if (pendingInvite) lookUpInvite(pendingInvite);
 }
 
@@ -637,6 +638,7 @@ $('#add-ok').onclick = (e) =>
       preview = null;
       $('#add-code').value = '';
       $('#open-in-app').hidden = true;
+      $('#invite-elsewhere').hidden = true;
       friends.friends = [...friends.friends.filter((f) => f.id !== friend.id), friend];
       commitFriends();
       toast(t('friendAdded', { name: nameOf(friend) }));
@@ -702,11 +704,13 @@ function openInviteLink() {
     const fallback = encodeURIComponent(`${location.origin}${location.pathname}`);
     $('#open-in-app-link').href = `intent://invite/${code}#Intent;scheme=habitchecker;package=io.github.tmerello1.habitchecker;S.browser_fallback_url=${fallback};end`;
   }
+  // Without a profile here, the friend may have one elsewhere: an installed web app
+  // opened from another browser keeps separate storage, so offer the code to carry over.
+  $('#invite-elsewhere').hidden = Boolean(friends.me) || androidApp;
+  $('#invite-elsewhere-text').textContent = t('inviteElsewhere', { code: formatCode(code) });
+  $('#copy-invite-code').onclick = () => copyText(formatCode(code));
   if (friends.me) lookUpInvite(code);
-  else {
-    pendingInvite = code;
-    toast(t('joinFirst'));
-  }
+  else pendingInvite = code;
   $('#friends-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 openInviteLink();

@@ -191,3 +191,4 @@ button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
 .code-box .row button { flex: 1 1 auto; }
 a.primary { display: block; text-align: center; text-decoration: none; }
 #open-in-app { margin-bottom: 12px; }
+#invite-elsewhere { margin-bottom: 12px; }
