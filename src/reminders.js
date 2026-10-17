@@ -20,6 +20,11 @@ export function dueReminders(state, now = new Date()) {
   );
 }
 
+// A private habit's reminder doesn't name it, since notifications show on the lock screen.
+export function reminderTitle(habit) {
+  return habit.private ? t('reminderTitlePrivate') : t('reminderTitle', { emoji: habit.emoji, name: habit.name });
+}
+
 export async function requestPermission() {
   if (!('Notification' in window)) return 'unsupported';
   return Notification.requestPermission();
@@ -28,7 +33,7 @@ export async function requestPermission() {
 export async function notify(habit) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const reg = await navigator.serviceWorker?.ready;
-  const title = t('reminderTitle', { emoji: habit.emoji, name: habit.name });
+  const title = reminderTitle(habit);
   const options = { body: t('reminderBody'), tag: habit.id, icon: 'icons/icon.svg' };
   if (reg) reg.showNotification(title, options);
   else new Notification(title, options);

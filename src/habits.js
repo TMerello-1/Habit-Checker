@@ -3,7 +3,7 @@
 //
 // Habit shape:
 //   { id, name, emoji, days: [0-6 weekday numbers, 0 = Sunday], time: "HH:MM" | "", createdAt: "YYYY-MM-DD",
-//     pastDays?: [{ until: "YYYY-MM-DD", days }] }
+//     private?: true, pastDays?: [{ until: "YYYY-MM-DD", days }] }
 // `days` is the current schedule. `pastDays` (oldest first) records earlier schedules,
 // each in effect for days before its `until`, so editing the days never rewrites history.
 // Completions shape (kept separately in state):
@@ -21,7 +21,7 @@ function daysOn(habit, key) {
   return past ? past.days : habit.days;
 }
 
-// Returns the habit with `changes` ({ name, emoji, days, time }) applied. Its id and
+// Returns the habit with `changes` ({ name, emoji, days, time, private }) applied. Its id and
 // createdAt stay, so completions, streaks and badges carry over. A new set of days
 // takes effect today; the old one is kept in pastDays for the days before.
 export function editHabit(habit, changes, today = new Date()) {

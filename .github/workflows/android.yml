@@ -53,6 +53,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The app's Updater reads "build N" from this title to spot a newer version.
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest habit-checker.apk \
             --target "$GITHUB_SHA" \

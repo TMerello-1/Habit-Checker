@@ -70,7 +70,7 @@ function render() {
   setBadge(openToday(habits, state.completions).length);
   $('#today-summary').textContent = today.length ? t('todaySummary', { done, total: today.length }) : t('nothingToday');
   $('#today').replaceChildren(
-    ...today.map((h) => {
+    ...withPrivateGroup(today, 'today', (h) => {
       const li = document.createElement('li');
       const checked = isDone(state.completions, h.id, new Date());
       li.className = checked ? 'habit done' : 'habit';
@@ -86,7 +86,7 @@ function render() {
 
   $('#all-count').textContent = habits.length ? `${habits.length}` : t('noneYet');
   $('#all').replaceChildren(
-    ...habits.map((h) => {
+    ...withPrivateGroup(habits, 'all', (h) => {
       const li = document.createElement('li');
       li.className = h.id === editing ? 'habit editing' : 'habit';
       li.innerHTML = `
@@ -116,7 +116,8 @@ function render() {
   $('#badges').replaceChildren(
     ...(r.badges.length
       ? r.badges.map((b) => {
-          const emoji = habits.find((h) => h.id === b.habitId).emoji;
+          const habit = habits.find((h) => h.id === b.habitId);
+          const emoji = habit.private ? '🔒' : habit.emoji;
           return Object.assign(document.createElement('li'), { className: 'badge', textContent: t('badge', { emoji, m: b.milestone }) });
         })
       : [Object.assign(document.createElement('li'), { className: 'muted', textContent: t('firstBadge') })]),
@@ -144,6 +145,27 @@ function reminderNote(perm) {
   }
   if (perm === 'denied') return t('remindersBlocked');
   return '';
+}
+
+// Private habits sit in a collapsed "🔒 Private" group at the end of a list, so their
+// names only show after a tap. The group starts closed again each time the app opens.
+const privateOpen = { today: false, all: false };
+function withPrivateGroup(habits, list, item) {
+  const hidden = habits.filter((h) => h.private);
+  const items = habits.filter((h) => !h.private).map(item);
+  if (!hidden.length) return items;
+  const done = hidden.filter((h) => isDone(state.completions, h.id, new Date())).length;
+  const li = document.createElement('li');
+  li.className = 'private-group';
+  li.innerHTML = `
+    <details${privateOpen[list] ? ' open' : ''}>
+      <summary>${esc(list === 'today' ? t('privateToday', { done, total: hidden.length }) : t('privateAll', { n: hidden.length }))}</summary>
+      <ul class="list"></ul>
+    </details>`;
+  const details = li.querySelector('details');
+  details.ontoggle = () => (privateOpen[list] = details.open);
+  li.querySelector('ul').replaceChildren(...hidden.map(item));
+  return [...items, li];
 }
 
 function esc(s) {
@@ -215,6 +237,7 @@ function startEdit(habit) {
   form.elements.name.value = habit.name;
   form.querySelectorAll('[name=days]').forEach((c) => (c.checked = habit.days.includes(Number(c.value))));
   form.elements.time.value = habit.time;
+  form.elements.private.checked = Boolean(habit.private);
   pickEmoji(habit.emoji);
   $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
   showPicker(false);
@@ -255,10 +278,12 @@ form.onsubmit = (e) => {
     emoji: f.get('emoji').trim() || '✅',
     days,
     time: f.get('time') || '',
+    private: f.has('private'),
   };
   const i = state.habits.findIndex((h) => h.id === editing);
   if (i >= 0) {
     const old = state.habits[i];
+    if (fields.private) privateOpen.all = true; // keep the edited habit in view
     state.habits[i] = editHabit(old, fields);
     // A new reminder time may still be ahead today, so let it fire again.
     if (fields.time !== old.time) delete state.notified[old.id];

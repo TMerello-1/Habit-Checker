@@ -6,7 +6,15 @@
     <string name="widget_nothing_today">Nothing scheduled today.</string>
     <string name="widget_all_done">All done today 🎉</string>
     <string name="widget_count">%1$d of %2$d done</string>
+    <string name="widget_private">🔒  Private habit</string>
     <string name="channel_name">Habit reminders</string>
     <string name="reminder_title">%1$s Time for: %2$s</string>
+    <string name="reminder_title_private">🔒 Time for a private habit</string>
     <string name="reminder_body">Keep your streak going!</string>
+    <string name="update_title">Update available</string>
+    <string name="update_message">A new version of Habit Checker is ready. Your habits and streaks stay as they are.</string>
+    <string name="update_now">Update</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading the update…</string>
+    <string name="update_failed">The update didn\'t download. Try again later.</string>
 </resources>
