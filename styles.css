@@ -48,7 +48,13 @@ header {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-header h1 { margin: 0 0 8px; font-size: 22px; }
+header h1 { margin: 0; font-size: 22px; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.menu-btn {
+  font: inherit; font-size: 22px; line-height: 1; width: 36px; height: 36px; margin-right: -8px;
+  background: none; color: #fff; border: none; border-radius: 50%; cursor: pointer;
+}
+.menu-btn:hover, .menu-btn:focus-visible { background: rgb(255 255 255 / 0.2); }
 .score { display: flex; justify-content: space-between; font-size: 15px; }
 .bar { height: 6px; background: rgb(255 255 255 / 0.3); border-radius: 3px; margin-top: 8px; overflow: hidden; }
 #progress { height: 100%; background: #fff; width: 0; transition: width 0.3s; }
@@ -146,6 +152,7 @@ button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
 #toast {
   position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 80px);
   background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;
+  width: max-content; max-width: calc(100vw - 32px); margin: 0;
   opacity: 0; transition: transform 0.25s, opacity 0.25s; pointer-events: none;
 }
 #toast.show { transform: translate(-50%, 0); opacity: 1; }
@@ -162,6 +169,28 @@ button[type=submit], #enable-reminders, #install, #copy-data, #import-btn {
 .confirm .confirm-emoji { font-size: 40px; margin: 0 0 4px; color: inherit; }
 .confirm .row { justify-content: center; gap: 8px; }
 .confirm .cancel { font: inherit; padding: 9px 16px; }
+
+/* Header menu and the sheet it opens */
+.menu {
+  margin: 0; inset: 12px max(12px, env(safe-area-inset-right, 0px)) auto auto;
+  min-width: 200px; padding: 6px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--card); color: var(--text); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.menu::backdrop { background: rgba(0, 0, 0, 0.2); }
+.menu-item {
+  display: block; width: 100%; font: inherit; text-align: left; padding: 10px 12px;
+  background: none; color: inherit; border: none; border-radius: 8px; cursor: pointer;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--bg); }
+.sheet {
+  width: min(480px, calc(100% - 32px)); padding: 16px; border: none; border-radius: 14px;
+  background: var(--card); color: var(--text); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.sheet::backdrop { background: rgba(0, 0, 0, 0.45); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sheet-head h2 { margin: 0; font-size: 20px; }
+.close { font: inherit; background: none; border: none; color: var(--muted); font-size: 18px; padding: 4px 8px; cursor: pointer; }
+.sheet .move { border: none; padding: 0; }
 
 /* Friends */
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 12px; }

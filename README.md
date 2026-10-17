@@ -30,7 +30,7 @@ Reminders appear as system notifications after you tap "Turn on reminders". In t
 `android/` is a small Android app that runs this site in a WebView and adds a home screen widget listing today's open habits. It also shows reminders natively, so they fire even while the app is closed.
 
 1. On your phone, download `habit-checker.apk` from the [android-latest release](https://github.com/TMerello-1/Habit-Checker/releases/tag/android-latest) and open it. Allow installing from your browser when Android asks.
-2. In the PWA, open **Move your data** and tap **Copy my data**. In the Android app, paste it into the same section and tap **Replace my data with this**. The two keep separate data, so use the Android app from then on.
+2. In the PWA, tap the **⋮** menu at the top, choose **Move your data** and tap **Copy my data**. In the Android app, open the same menu, paste it in and tap **Replace my data with this**. The two keep separate data, so use the Android app from then on.
 3. Long-press the home screen, choose **Widgets**, and drag **Habit Checker** onto it.
 
 The APK is built by `.github/workflows/android.yml` and republished whenever `android/` changes on main. To make updates install over the previous version, add the repo secrets `ANDROID_KEYSTORE` (a base64-encoded keystore with key alias `habit-checker`) and `ANDROID_KEYSTORE_PASSWORD`. Without them each build is signed with a new key, and updating means copying your data, uninstalling, then reinstalling.

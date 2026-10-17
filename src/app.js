@@ -180,6 +180,9 @@ function esc(s) {
 
 function toast(msg) {
   const el = $('#toast');
+  // An open modal dialog sits in the top layer, above anything in the page, so
+  // the toast moves into it to stay visible.
+  (document.querySelector('dialog[open]') ?? document.body).append(el);
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toast.t);
@@ -344,6 +347,19 @@ $('#install').onclick = async () => {
   help.hidden = !help.hidden;
 };
 
+// The ⋮ menu in the header holds things needed rarely, like moving data.
+// Tapping a dialog's dimmed backdrop or its ✕ closes it.
+for (const dlg of document.querySelectorAll('#menu, #move-dialog')) {
+  dlg.onclick = (e) => {
+    if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+  };
+}
+$('#menu-btn').onclick = () => $('#menu').showModal();
+$('#menu-move').onclick = () => {
+  $('#menu').close();
+  $('#move-dialog').showModal();
+};
+
 // "Move your data": copy the state out as text, or replace it with pasted text.
 // Replacing asks for a second tap, like delete, since it overwrites everything here.
 $('#copy-data').onclick = async () => {
@@ -380,6 +396,7 @@ $('#import-btn').onclick = (e) => {
   btn.textContent = t('replaceData');
   state = { ...state, ...data, notified: {} };
   $('#import-data').value = '';
+  $('#move-dialog').close();
   resetForm();
   commit();
   toast(t('imported', { n: data.habits.length }));
