@@ -4,7 +4,7 @@
 
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { dateKey } from './dates.js';
-import { acceptInvite, createInvite, createProfile, deleteProfile, fetchMe, friendsEnabled, loadFriends, previewInvite, removeFriend, saveFriends, sendStats, ServerError } from './friends.js';
+import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
 import { currentStreak, dueToday, editHabit, isDone, openToday, rewards, sharedStats, STREAK_MILESTONES } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
@@ -349,7 +349,7 @@ $('#install').onclick = async () => {
 
 // The ⋮ menu in the header holds things needed rarely, like moving data.
 // Tapping a dialog's dimmed backdrop or its ✕ closes it.
-for (const dlg of document.querySelectorAll('#menu, #move-dialog')) {
+for (const dlg of document.querySelectorAll('#menu, #move-dialog, #feedback-dialog, #inbox-dialog')) {
   dlg.onclick = (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   };
@@ -419,6 +419,9 @@ function avatar(el, name) {
 
 function renderFriends() {
   $('#friends-section').hidden = !friendsEnabled();
+  // Feedback goes to the friends server too, and its inbox is for admin profiles only.
+  $('#menu-feedback').hidden = !friendsEnabled();
+  $('#menu-inbox').hidden = !(friends.me && friends.admin);
   const me = friends.me;
   $('#friends-join').hidden = Boolean(me);
   $('#friends-main').hidden = !me;
@@ -516,7 +519,7 @@ async function friendsCall(fn, messages = {}) {
     // A null message keeps a background call quiet, e.g. a refresh while offline.
     if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
     if (err.status === 401 && friends.me) {
-      friends = { ...friends, code: '', me: null, friends: [], sent: '' };
+      friends = { ...friends, code: '', me: null, admin: false, friends: [], sent: '' };
       commitFriends();
       return toast(t('profileGone'));
     }
@@ -528,9 +531,10 @@ async function refreshFriends() {
   if (!friends.me) return;
   refreshFriends.last = Date.now();
   await friendsCall(async () => {
-    const { me, friends: list } = await fetchMe(friends.code);
+    const { me, friends: list, admin } = await fetchMe(friends.code);
     friends.me = me;
     friends.friends = list;
+    friends.admin = Boolean(admin);
     commitFriends();
   }, { 0: null });
 }
@@ -554,7 +558,7 @@ function sendStatsSoon(delay = 1500) {
 }
 
 async function signedIn(code, data, message) {
-  friends = { ...friends, code, me: data.me, friends: data.friends || [], sent: '' };
+  friends = { ...friends, code, me: data.me, admin: Boolean(data.admin), friends: data.friends || [], sent: '' };
   commitFriends();
   toast(t(message, { name: nameOf(data.me) }));
   sendStatsSoon(0);
@@ -682,13 +686,74 @@ $('#leave').onclick = (e) => {
   btn.textContent = t('deleteProfile');
   friendsCall(async () => {
     await deleteProfile(friends.code);
-    friends = { code: '', me: null, friends: [], nicknames: {}, sent: '' };
+    friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '' };
     $('#recovery-box').hidden = true;
     $('#invite-box').hidden = true;
     commitFriends();
     toast(t('profileDeleted'));
   });
 };
+
+// Feedback from the ⋮ menu goes to the friends server anonymously (no profile needed).
+// Profiles listed as admins on the server also get a "Feedback inbox" in the menu.
+$('#menu-feedback').onclick = () => {
+  $('#menu').close();
+  $('#feedback-dialog').showModal();
+};
+
+$('#feedback-send').onclick = (e) => {
+  const text = $('#feedback-text').value.trim();
+  if (!text) return $('#feedback-text').focus();
+  busy(e.currentTarget, () =>
+    friendsCall(async () => {
+      await sendFeedback({ text, lang, platform: androidApp ? 'android' : 'web' });
+      $('#feedback-text').value = '';
+      $('#feedback-dialog').close();
+      toast(t('feedbackThanks'));
+    }, { 0: 'feedbackOffline', 429: 'feedbackTooMuch' }),
+  );
+};
+
+let inbox = [];
+$('#menu-inbox').onclick = () => {
+  $('#menu').close();
+  inbox = [];
+  renderInbox();
+  $('#inbox-dialog').showModal();
+  friendsCall(async () => {
+    ({ feedback: inbox } = await fetchFeedback(friends.code));
+    renderInbox();
+  });
+};
+
+function renderInbox() {
+  $('#inbox-empty').hidden = inbox.length > 0;
+  $('#inbox-list').replaceChildren(
+    ...inbox.map((f) => {
+      const li = document.createElement('li');
+      const when = new Date(f.createdAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' });
+      li.innerHTML = `
+        <div class="inbox-meta"><span>${esc(when)} · ${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</span>
+          <button type="button" class="delete">${esc(t('inboxDone'))}</button></div>
+        <p>${esc(f.text)}</p>`;
+      li.querySelector('.delete').onclick = (e) => {
+        const btn = e.currentTarget;
+        if (!btn.classList.contains('armed')) {
+          btn.classList.add('armed');
+          btn.textContent = t('inboxDoneConfirm');
+          setTimeout(() => btn.isConnected && renderInbox(), 3000);
+          return;
+        }
+        friendsCall(async () => {
+          await deleteFeedback(friends.code, f.id);
+          inbox = inbox.filter((x) => x.id !== f.id);
+          renderInbox();
+        });
+      };
+      return li;
+    }),
+  );
+}
 
 // Disables a button while its request runs, so a double tap doesn't send twice.
 async function busy(btn, fn) {

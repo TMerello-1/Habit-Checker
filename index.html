@@ -133,6 +133,8 @@
 
   <dialog id="menu" class="menu" aria-label="Menu" data-i18n-aria-label="menu">
     <button type="button" id="menu-move" class="menu-item" data-i18n="moveDataItem">📦 Move your data</button>
+    <button type="button" id="menu-feedback" class="menu-item" data-i18n="feedbackItem" hidden>💬 Send feedback</button>
+    <button type="button" id="menu-inbox" class="menu-item" data-i18n="inboxItem" hidden>📬 Feedback inbox</button>
   </dialog>
 
   <dialog id="move-dialog" class="sheet" aria-labelledby="move-title">
@@ -146,6 +148,27 @@
       <textarea id="import-data" rows="3" placeholder="Paste copied data here" aria-label="Data to import" data-i18n-placeholder="pastePlaceholder" data-i18n-aria-label="importLabel"></textarea>
       <button type="button" id="import-btn" data-i18n="replaceData">Replace my data with this</button>
     </div>
+  </dialog>
+
+  <dialog id="feedback-dialog" class="sheet" aria-labelledby="feedback-title">
+    <div class="sheet-head">
+      <h2 id="feedback-title" data-i18n="feedback">Send feedback</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? It's sent anonymously.</p>
+      <textarea id="feedback-text" rows="5" maxlength="2000" placeholder="Your feedback" aria-label="Your feedback" data-i18n-placeholder="feedbackPlaceholder" data-i18n-aria-label="feedbackPlaceholder"></textarea>
+      <button type="button" id="feedback-send" data-i18n="sendFeedback">Send</button>
+    </div>
+  </dialog>
+
+  <dialog id="inbox-dialog" class="sheet" aria-labelledby="inbox-title">
+    <div class="sheet-head">
+      <h2 id="inbox-title" data-i18n="inbox">Feedback inbox</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <p id="inbox-empty" class="muted" data-i18n="inboxEmpty" hidden>No feedback right now.</p>
+    <ul id="inbox-list" class="inbox"></ul>
   </dialog>
 
   <dialog id="confirm-done" class="confirm" aria-labelledby="confirm-title">

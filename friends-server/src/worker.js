@@ -14,12 +14,20 @@
 //   GET    /invites/<code>                          → { profile }  who sent it, before accepting
 //   POST   /invites/<code>/accept                   → { friend }
 //   DELETE /friends/<id>
+//   POST   /feedback               { text, lang, platform }   no sign-in needed, anonymous
+//   GET    /feedback                                → { feedback }   admins only
+//   DELETE /feedback/<id>                                             admins only
+//
+// Admins are the profiles named in the ADMINS variable (see wrangler.toml); GET /me tells
+// the app whether the signed-in profile is one, so it can show the feedback inbox.
 
 import { INVITE_LENGTH, isCode, normalizeCode, randomCode, RECOVERY_LENGTH } from '../../src/codes.js';
 import { ADJECTIVES, ANIMALS } from '../../src/names.js';
 
 const INVITE_DAYS = 7;
 const MAX_FRIENDS = 200;
+const MAX_FEEDBACK_LENGTH = 2000;
+const FEEDBACK_PER_HOUR = 5;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -84,6 +92,9 @@ async function signedIn(request, env) {
   if (!isCode(token, RECOVERY_LENGTH)) return null;
   return env.DB.prepare('SELECT * FROM profiles WHERE token_hash = ?').bind(await sha256(token)).first();
 }
+
+const nameKey = (row) => `${row.adj}.${row.animal}.${row.num}`;
+const isAdmin = (env, me) => (env.ADMINS || '').split(',').map((s) => s.trim()).includes(nameKey(me));
 
 async function friendsOf(env, id) {
   const { results } = await env.DB.prepare(
@@ -168,15 +179,44 @@ async function removeFriend(env, me, id) {
   return json({ ok: true });
 }
 
+async function sendFeedback(request, env) {
+  const body = await request.json().catch(() => null);
+  const text = typeof body?.text === 'string' ? body.text.trim() : '';
+  if (!text || text.length > MAX_FEEDBACK_LENGTH) return fail(400, 'invalid feedback');
+  const lang = typeof body.lang === 'string' && /^[a-z]{2}$/.test(body.lang) ? body.lang : 'en';
+  const platform = body.platform === 'android' ? 'android' : 'web';
+  const ipHash = await sha256(`feedback:${request.headers.get('CF-Connecting-IP') || ''}`);
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - 3_600_000).toISOString();
+  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM feedback WHERE ip_hash = ? AND created_at > ?')
+    .bind(ipHash, hourAgo)
+    .first();
+  if (recent.n >= FEEDBACK_PER_HOUR) return fail(429, 'too much feedback');
+  await env.DB.prepare('INSERT INTO feedback (id, text, lang, platform, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), text, lang, platform, ipHash, now.toISOString())
+    .run();
+  return json({ ok: true }, 201);
+}
+
+async function listFeedback(env) {
+  const { results } = await env.DB.prepare('SELECT * FROM feedback ORDER BY created_at DESC LIMIT 500').all();
+  return json({
+    feedback: results.map((r) => ({ id: r.id, text: r.text, lang: r.lang, platform: r.platform, createdAt: r.created_at })),
+  });
+}
+
 async function route(request, env) {
   const { pathname } = new URL(request.url);
   const { method } = request;
   if (method === 'GET' && pathname === '/') return json({ ok: true, service: 'habit-checker-friends' });
   if (method === 'POST' && pathname === '/profiles') return createProfile(request, env);
+  if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env);
 
   const me = await signedIn(request, env);
   if (!me) return fail(401, 'unknown profile');
-  if (method === 'GET' && pathname === '/me') return json({ me: publicProfile(me), friends: await friendsOf(env, me.id) });
+  if (method === 'GET' && pathname === '/me') {
+    return json({ me: publicProfile(me), friends: await friendsOf(env, me.id), admin: isAdmin(env, me) });
+  }
   if (method === 'PUT' && pathname === '/me/stats') return updateStats(request, env, me);
   if (method === 'DELETE' && pathname === '/me') return deleteProfile(env, me);
   if (method === 'POST' && pathname === '/invites') return createInvite(env, me);
@@ -185,6 +225,15 @@ async function route(request, env) {
   if ((m = pathname.match(/^\/invites\/([^/]+)$/)) && method === 'GET') return previewInvite(env, me, m[1]);
   if ((m = pathname.match(/^\/invites\/([^/]+)\/accept$/)) && method === 'POST') return acceptInvite(env, me, m[1]);
   if ((m = pathname.match(/^\/friends\/([\w-]{1,64})$/)) && method === 'DELETE') return removeFriend(env, me, m[1]);
+
+  if (pathname === '/feedback' || pathname.startsWith('/feedback/')) {
+    if (!isAdmin(env, me)) return fail(403, 'not an admin');
+    if (method === 'GET' && pathname === '/feedback') return listFeedback(env);
+    if ((m = pathname.match(/^\/feedback\/([\w-]{1,64})$/)) && method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(m[1]).run();
+      return json({ ok: true });
+    }
+  }
   return fail(404, 'not found');
 }
 
