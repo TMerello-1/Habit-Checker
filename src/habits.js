@@ -108,3 +108,50 @@ export function sharedStats(habits, completions, today = new Date()) {
   const streaks = habits.filter((h) => !h.private).map((h) => currentStreak(h, completions, today));
   return { level: rewards(habits, completions, today).level, streak: Math.max(0, ...streaks) };
 }
+
+export const POINTS_PER_LEVEL = 250;
+
+// Where `points` sit within the current level, for the bar and "N pts to level X" in the header.
+export function levelProgress(points) {
+  const into = points % POINTS_PER_LEVEL;
+  return { level: Math.floor(points / POINTS_PER_LEVEL) + 1, into, toNext: POINTS_PER_LEVEL - into };
+}
+
+// One entry per habit with a badge: its highest milestone and the next one to aim for
+// (null once all are earned). Keeps the Progress sheet short as badges pile up.
+export function bestBadges(badges) {
+  const best = new Map();
+  for (const b of badges) if (b.milestone > (best.get(b.habitId) ?? 0)) best.set(b.habitId, b.milestone);
+  return [...best].map(([habitId, milestone]) => ({
+    habitId,
+    milestone,
+    next: STREAK_MILESTONES.find((m) => m > milestone) ?? null,
+  }));
+}
+
+// Today's list order: open habits first, by reminder time (habits without one after
+// those with), then the ones already done, in the same order. Stable otherwise.
+export function sortToday(habits, completions, today = new Date()) {
+  const rank = (h) => [isDone(completions, h.id, today) ? 1 : 0, h.time || '99:99'];
+  return [...habits].sort((a, b) => {
+    const [da, ta] = rank(a);
+    const [db, tb] = rank(b);
+    return da - db || (ta < tb ? -1 : ta > tb ? 1 : 0);
+  });
+}
+
+// Until noon, yesterday's scheduled habits that weren't checked off can still be, for
+// the "I did it but forgot to tick it" case. Afterwards the day is closed.
+export const GRACE_UNTIL_HOUR = 12;
+
+export function missedYesterday(habits, completions, now = new Date()) {
+  if (now.getHours() >= GRACE_UNTIL_HOUR) return [];
+  const yesterday = addDays(now, -1);
+  return habits.filter((h) => isScheduled(h, yesterday) && !isDone(completions, h.id, yesterday));
+}
+
+// A short name for common schedules, or null to list the days: "daily", "weekdays", "weekends".
+export function scheduleKind(days) {
+  const key = [...days].sort().join();
+  return { '0,1,2,3,4,5,6': 'daily', '1,2,3,4,5': 'weekdays', '0,6': 'weekends' }[key] ?? null;
+}

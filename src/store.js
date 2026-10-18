@@ -21,23 +21,26 @@ export function save(state) {
   }
 }
 
-// Which collapsible sections are open. Kept apart from the app state because it is
-// a per-device view preference, not data.
+// Per-device view preferences, kept apart from the app state because they aren't data:
+// { open: { [sectionId]: bool }, dismissed: { install?, blocked? }, confirm: bool }.
+// `confirm` is "Ask before checking off" (on unless turned off in the ⋮ menu).
 const UI_KEY = 'habit-checker:ui';
 
-export function loadOpenSections() {
+export function loadPrefs() {
+  let saved = {};
   try {
-    return JSON.parse(localStorage.getItem(UI_KEY))?.open || {};
+    saved = JSON.parse(localStorage.getItem(UI_KEY)) || {};
   } catch {
-    return {};
+    // Blocked or damaged storage: defaults.
   }
+  return { open: {}, dismissed: {}, confirm: true, ...saved };
 }
 
-export function saveOpenSections(open) {
+export function savePrefs(prefs) {
   try {
-    localStorage.setItem(UI_KEY, JSON.stringify({ open }));
+    localStorage.setItem(UI_KEY, JSON.stringify(prefs));
   } catch {
-    // Blocked storage: sections just start collapsed next time.
+    // Blocked storage: preferences last for this session only.
   }
 }
 

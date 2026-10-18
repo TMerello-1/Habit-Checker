@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 12, date: '2026-10-18', notable: true,
+    en: 'A fresh layout: Today comes first, add habits with the ＋ button, tap a whole row to check it off, and tap your level to see your badges. Forgot one yesterday? You can still check it off until noon.',
+    de: 'Ein frisches Layout: Heute steht oben, neue Gewohnheiten legst du mit ＋ an, eine ganze Zeile hakt ab, und ein Tipp auf dein Level zeigt deine Abzeichen. Gestern eine vergessen? Bis 12 Uhr kannst du sie noch abhaken.',
+  },
+  {
     v: 11, date: '2026-10-18', notable: true,
     en: 'Help and this list of what\'s new, in the ⋮ menu.',
     de: 'Hilfe und diese Liste mit Neuigkeiten, im ⋮-Menü.',
