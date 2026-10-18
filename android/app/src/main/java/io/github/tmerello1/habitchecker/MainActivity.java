@@ -5,9 +5,13 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.DisplayCutout;
+import android.view.RoundedCorner;
+import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -40,6 +44,8 @@ public class MainActivity extends Activity {
             + "})();";
 
     private WebView web;
+    // The page's --app-inset-* values for the current screen, see insetsJs().
+    private String insetsJs = "";
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -66,8 +72,17 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                if (HOST.equals(Uri.parse(url).getHost())) view.evaluateJavascript(BRIDGE_JS, null);
+                if (HOST.equals(Uri.parse(url).getHost())) view.evaluateJavascript(BRIDGE_JS + insetsJs, null);
             }
+        });
+
+        // WebView has no env(safe-area-inset-*), so the page gets the room to keep clear of
+        // camera cutouts and rounded corners from here. It changes with the screen, e.g. on
+        // a Flip's cover display, and the page's CSS follows it.
+        web.setOnApplyWindowInsetsListener((v, insets) -> {
+            insetsJs = insetsJs(insets);
+            web.evaluateJavascript(insetsJs, null);
+            return v.onApplyWindowInsets(insets);
         });
 
         if (savedInstanceState == null) web.loadUrl(urlFor(getIntent()));
@@ -99,6 +114,57 @@ public class MainActivity extends Activity {
         }
         if ("https".equals(data.getScheme()) && HOST.equals(data.getHost())) return data.toString();
         return START_URL;
+    }
+
+    // Folding, unfolding or moving to the cover screen resizes the WebView in place (see
+    // configChanges in the manifest); ask for fresh insets for the new screen.
+    @Override
+    public void onConfigurationChanged(Configuration config) {
+        super.onConfigurationChanged(config);
+        web.requestApplyInsets();
+    }
+
+    // Sets --app-inset-top/right/bottom/left (in CSS px) to the larger of the cutout's safe
+    // inset and how far a rounded screen corner reaches into the WebView on that side.
+    private String insetsJs(WindowInsets insets) {
+        int[] px = new int[4]; // top, right, bottom, left
+        if (Build.VERSION.SDK_INT >= 28) {
+            DisplayCutout cutout = insets.getDisplayCutout();
+            if (cutout != null) {
+                px[0] = cutout.getSafeInsetTop();
+                px[1] = cutout.getSafeInsetRight();
+                px[2] = cutout.getSafeInsetBottom();
+                px[3] = cutout.getSafeInsetLeft();
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 31) {
+            int[] at = new int[2];
+            web.getLocationInWindow(at);
+            int top = at[1], left = at[0], bottom = top + web.getHeight(), right = left + web.getWidth();
+            int[] positions = {RoundedCorner.POSITION_TOP_LEFT, RoundedCorner.POSITION_TOP_RIGHT,
+                    RoundedCorner.POSITION_BOTTOM_RIGHT, RoundedCorner.POSITION_BOTTOM_LEFT};
+            for (int pos : positions) {
+                RoundedCorner c = insets.getRoundedCorner(pos);
+                if (c == null || c.getRadius() == 0) continue;
+                // Keep content inside the point of the curve at 45°.
+                int reach = Math.round(c.getRadius() * 0.7071f);
+                int x = c.getCenter().x, y = c.getCenter().y;
+                boolean isTop = pos == RoundedCorner.POSITION_TOP_LEFT || pos == RoundedCorner.POSITION_TOP_RIGHT;
+                boolean isLeft = pos == RoundedCorner.POSITION_TOP_LEFT || pos == RoundedCorner.POSITION_BOTTOM_LEFT;
+                if (isTop) px[0] = Math.max(px[0], y - reach - top);
+                else px[2] = Math.max(px[2], bottom - (y + reach));
+                if (isLeft) px[3] = Math.max(px[3], x - reach - left);
+                else px[1] = Math.max(px[1], right - (x + reach));
+            }
+        }
+        float density = getResources().getDisplayMetrics().density;
+        String[] sides = {"top", "right", "bottom", "left"};
+        StringBuilder js = new StringBuilder(";(function () { var r = document.documentElement.style;");
+        for (int i = 0; i < 4; i++) {
+            js.append(" r.setProperty('--app-inset-").append(sides[i]).append("', '")
+                    .append(Math.max(0, Math.round(px[i] / density))).append("px');");
+        }
+        return js.append(" })();").toString();
     }
 
     @Override
