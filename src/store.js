@@ -40,3 +40,24 @@ export function saveOpenSections(open) {
     // Blocked storage: sections just start collapsed next time.
   }
 }
+
+// The newest changelog version this device has caught up to (see changelog.js), so the
+// "New: …" banner shows once per update. Per device, like the open sections.
+const SEEN_KEY = 'habit-checker:seen';
+
+export function loadSeenVersion() {
+  try {
+    const v = Number(localStorage.getItem(SEEN_KEY));
+    return localStorage.getItem(SEEN_KEY) == null || Number.isNaN(v) ? null : v;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSeenVersion(v) {
+  try {
+    localStorage.setItem(SEEN_KEY, String(v));
+  } catch {
+    // Blocked storage: the banner may show again next time.
+  }
+}

@@ -24,6 +24,11 @@
   </header>
 
   <main>
+    <div id="whats-new-banner" class="banner" role="status" hidden>
+      <p id="whats-new-text"></p>
+      <button type="button" id="whats-new-more" class="link" data-i18n="seeWhatsNew">What's new</button>
+      <button type="button" id="whats-new-close" class="close" aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
     <button id="install" data-i18n="install" hidden>📲 Install app</button>
     <p id="install-help" class="note" hidden></p>
     <button id="enable-reminders" data-i18n="enableReminders" hidden>🔔 Turn on reminders</button>
@@ -134,6 +139,7 @@
   <dialog id="menu" class="menu" aria-label="Menu" data-i18n-aria-label="menu">
     <button type="button" id="menu-move" class="menu-item" data-i18n="moveDataItem">📦 Move your data</button>
     <button type="button" id="menu-feedback" class="menu-item" data-i18n="feedbackItem" hidden>💬 Send feedback</button>
+    <button type="button" id="menu-help" class="menu-item" data-i18n="helpItem">❓ Help &amp; what's new</button>
     <button type="button" id="menu-inbox" class="menu-item" data-i18n="inboxItem" hidden>📬 Feedback inbox</button>
   </dialog>
 
@@ -159,6 +165,18 @@
       <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? It's sent anonymously.</p>
       <textarea id="feedback-text" rows="5" maxlength="2000" placeholder="Your feedback" aria-label="Your feedback" data-i18n-placeholder="feedbackPlaceholder" data-i18n-aria-label="feedbackPlaceholder"></textarea>
       <button type="button" id="feedback-send" data-i18n="sendFeedback">Send</button>
+    </div>
+  </dialog>
+
+  <dialog id="help-dialog" class="sheet" aria-labelledby="help-title">
+    <div class="sheet-head">
+      <h2 id="help-title" data-i18n="help">Help</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <div class="help">
+      <div id="help-topics"></div>
+      <h2 id="whats-new-title" data-i18n="whatsNew">What's new</h2>
+      <div id="whats-new-list"></div>
     </div>
   </dialog>
 
