@@ -4,6 +4,7 @@
 
 import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
+import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, registerAdminDevice, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
 import { addDays, dateKey } from './dates.js';
 import { bestBadges, currentStreak, dueToday, editHabit, isDone, levelProgress, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES } from './habits.js';
@@ -804,7 +805,9 @@ $('#invite-btn').onclick = (e) =>
 
 $('#share-invite').onclick = async () => {
   const code = formatCode(friends.invite);
-  const url = `${location.origin}${location.pathname}#invite=${friends.invite}`;
+  // A link on the friends server, which opens the Android app when it's installed (App
+  // Links) and otherwise forwards to this page with #invite=CODE.
+  const url = `${FRIENDS_SERVER}/invite/${friends.invite}`;
   const text = t('inviteShare', { code, url });
   try {
     if (navigator.share) return await navigator.share({ text });

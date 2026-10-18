@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 14, date: '2026-10-18',
+    en: 'Invite links now open the Android app directly (after updating it). Without the app they open the web app as before.',
+    de: 'Einladungslinks öffnen jetzt direkt die Android-App (nach dem Update). Ohne App öffnen sie wie bisher die Web-App.',
+  },
+  {
     v: 13, date: '2026-10-18',
     en: 'Fits small screens, like a flip phone\'s cover display: a slimmer header, sheets that scroll with their title in view, and the ⋮ menu always on screen.',
     de: 'Passt auf kleine Bildschirme wie das Außendisplay eines Klapphandys: schmalere Kopfzeile, Fenster, die mit sichtbarem Titel scrollen, und das ⋮-Menü immer im Bild.',
