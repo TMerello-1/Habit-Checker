@@ -23,6 +23,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Invite links (https://<friends server>/invite/CODE). The friends server serves
+                 /.well-known/assetlinks.json, so Android verifies these and opens them here
+                 without asking. Keep the host in step with FRIENDS_SERVER in src/config.js. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="habit-checker-friends.habits-f6268550.workers.dev" android:pathPrefix="/invite/" />
+            </intent-filter>
             <!-- Invite links: the site's "Open in the app" button sends habitchecker://invite/CODE. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

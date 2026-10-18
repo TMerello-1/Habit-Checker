@@ -26,6 +26,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
     static final String START_URL = "https://tmerello-1.github.io/Habit-Checker/";
     private static final String HOST = Uri.parse(START_URL).getHost();
+    // The friends server, whose /invite/CODE links open the app (see AndroidManifest.xml).
+    private static final String INVITE_HOST = "habit-checker-friends.habits-f6268550.workers.dev";
 
     // Wraps localStorage.setItem so every save of the app state is passed to the bridge, and
     // each save of the friends data too (FeedbackJob needs to know about admin profiles).
@@ -104,11 +106,14 @@ public class MainActivity extends Activity {
         if (intent.getData() != null) web.loadUrl(urlFor(intent));
     }
 
-    // habitchecker://invite/CODE and links to the site open the matching page; anything else the start page.
+    // Invite links (https://<friends server>/invite/CODE or habitchecker://invite/CODE) and links
+    // to the site open the matching page; anything else the start page.
     static String urlFor(Intent intent) {
         Uri data = intent == null ? null : intent.getData();
         if (data == null) return START_URL;
-        if ("habitchecker".equals(data.getScheme()) && "invite".equals(data.getHost())) {
+        boolean inviteLink = "https".equals(data.getScheme()) && INVITE_HOST.equals(data.getHost())
+                && data.getPath() != null && data.getPath().startsWith("/invite/");
+        if (inviteLink || ("habitchecker".equals(data.getScheme()) && "invite".equals(data.getHost()))) {
             String code = data.getLastPathSegment();
             if (code != null && code.matches("[A-Za-z0-9-]{1,32}")) return START_URL + "#invite=" + code;
         }

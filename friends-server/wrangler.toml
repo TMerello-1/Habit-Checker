@@ -17,6 +17,12 @@ database_id = "D1_DATABASE_ID"
 # profile, take the name out here, or whoever gets the name next would see the inbox.
 ADMINS = "35.23.0"  # Rosy Alpaca
 
+# Where invite links (/invite/CODE) send browsers that don't have the Android app.
+APP_URL = "https://tmerello-1.github.io/Habit-Checker/"
+# SHA-256 of the Android app's signing certificate, for /.well-known/assetlinks.json. The
+# deploy workflow reads it from the ANDROID_KEYSTORE secret; empty means no App Links.
+ANDROID_CERT_SHA256 = "ANDROID_CERT_SHA256"
+
 # The push server (server/), which sends admins a notification for new feedback.
 [[services]]
 binding = "PUSH"

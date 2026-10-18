@@ -223,3 +223,24 @@ test('feedback is still saved when the push server fails', async () => {
   assert.equal((await call('POST', '/feedback', { body: { text: 'hello' } })).status, 201);
   assert.equal((await call('GET', '/feedback', { code: tom.code })).body.feedback.length, 1);
 });
+
+test('serves Android App Links for the signing certificate, or nothing without one', async () => {
+  env.ANDROID_CERT_SHA256 = 'AA:BB';
+  let res = await worker.fetch(new Request('https://friends.test/.well-known/assetlinks.json'), env);
+  assert.equal(res.headers.get('Content-Type'), 'application/json');
+  const [link] = await res.json();
+  assert.equal(link.target.package_name, 'io.github.tmerello1.habitchecker');
+  assert.deepEqual(link.target.sha256_cert_fingerprints, ['AA:BB']);
+  env.ANDROID_CERT_SHA256 = '';
+  res = await worker.fetch(new Request('https://friends.test/.well-known/assetlinks.json'), env);
+  assert.deepEqual(await res.json(), []);
+});
+
+test('invite links send browsers on to the web app with the code', async () => {
+  env.APP_URL = 'https://app.test/';
+  let res = await worker.fetch(new Request('https://friends.test/invite/abcd-1234'), env);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('Location'), 'https://app.test/#invite=ABCD1234');
+  res = await worker.fetch(new Request('https://friends.test/invite/nope'), env);
+  assert.equal(res.headers.get('Location'), 'https://app.test/');
+});
