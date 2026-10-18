@@ -2,6 +2,7 @@
 // through commit(), which saves and re-renders the whole view (the app is small
 // enough that diffing isn't worth it).
 
+import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { dateKey } from './dates.js';
 import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, registerAdminDevice, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
@@ -11,7 +12,7 @@ import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
 import { enablePush, pushActive, pushEndpoint, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
-import { load, loadOpenSections, save, saveOpenSections } from './store.js';
+import { load, loadOpenSections, loadSeenVersion, save, saveOpenSections, saveSeenVersion } from './store.js';
 import { exportData, parseImport } from './transfer.js';
 
 let state = load();
@@ -349,7 +350,7 @@ $('#install').onclick = async () => {
 
 // The ⋮ menu in the header holds things needed rarely, like moving data.
 // Tapping a dialog's dimmed backdrop or its ✕ closes it.
-for (const dlg of document.querySelectorAll('#menu, #move-dialog, #feedback-dialog, #inbox-dialog')) {
+for (const dlg of document.querySelectorAll('#menu, #move-dialog, #feedback-dialog, #help-dialog, #inbox-dialog')) {
   dlg.onclick = (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   };
@@ -750,6 +751,41 @@ async function syncAdminDevice() {
     saveFriends(friends);
   }, { 0: null, 403: null });
 }
+
+// Help and the full "What's new" list, from the ⋮ menu or the banner below.
+$('#menu-help').onclick = () => {
+  $('#menu').close();
+  openHelp();
+};
+
+function openHelp(atWhatsNew = false) {
+  $('#help-topics').innerHTML = t('helpTopics')
+    .map(([title, text]) => `<h3>${esc(title)}</h3><p>${esc(text)}</p>`)
+    .join('');
+  $('#whats-new-list').innerHTML = changesByDate(getLang())
+    .map(({ date, items }) => {
+      const when = new Date(`${date}T12:00`).toLocaleDateString(getLang(), { dateStyle: 'long' });
+      return `<h3>${esc(when)}</h3><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`;
+    })
+    .join('');
+  $('#help-dialog').showModal();
+  const help = $('#help-dialog .help');
+  help.scrollTop = atWhatsNew ? $('#whats-new-title').offsetTop - help.offsetTop : 0;
+}
+
+// After an update with a notable change, a small banner says so once. It counts as seen
+// as soon as it shows, so it never comes back on the next launch.
+const newChange = bannerChange(loadSeenVersion(), state.habits.length > 0);
+saveSeenVersion(LATEST);
+if (newChange) {
+  $('#whats-new-text').textContent = t('newBanner', { text: newChange[getLang()] ?? newChange.en });
+  $('#whats-new-banner').hidden = false;
+}
+$('#whats-new-close').onclick = () => ($('#whats-new-banner').hidden = true);
+$('#whats-new-more').onclick = () => {
+  $('#whats-new-banner').hidden = true;
+  openHelp(true);
+};
 
 // Tapping a new-feedback notification opens the app at …#inbox.
 function openInboxLink() {
