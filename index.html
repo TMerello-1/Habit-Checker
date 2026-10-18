@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#3730a3" media="(prefers-color-scheme: dark)">
   <title>Habit Checker</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -16,11 +17,14 @@
       <h1>Habit Checker</h1>
       <button type="button" id="menu-btn" class="menu-btn" aria-label="Menu" data-i18n-aria-label="menu" aria-haspopup="dialog">⋮</button>
     </div>
-    <div class="score">
-      <span><span data-i18n="level">Level</span> <b id="level">1</b></span>
-      <span><b id="points">0</b> <span data-i18n="pts">pts</span></span>
-    </div>
-    <div class="bar"><div id="progress"></div></div>
+    <button type="button" id="progress-btn" class="score" aria-haspopup="dialog">
+      <span class="score-top">
+        <span><span data-i18n="level">Level</span> <b id="level">1</b></span>
+        <span><b id="points">0</b> <span data-i18n="pts">pts</span> · 🏅 <b id="badge-count">0</b></span>
+      </span>
+      <span class="bar"><span id="progress"></span></span>
+      <span class="score-next"><span id="to-next"></span> ›</span>
+    </button>
   </header>
 
   <main>
@@ -29,20 +33,37 @@
       <button type="button" id="whats-new-more" class="link" data-i18n="seeWhatsNew">What's new</button>
       <button type="button" id="whats-new-close" class="close" aria-label="Close" data-i18n-aria-label="close">✕</button>
     </div>
-    <button id="install" data-i18n="install" hidden>📲 Install app</button>
-    <p id="install-help" class="note" hidden></p>
-    <button id="enable-reminders" data-i18n="enableReminders" hidden>🔔 Turn on reminders</button>
-    <p id="reminder-note" class="note" hidden></p>
 
-    <section>
-      <h2><span data-i18n="today">Today</span> <small id="today-summary"></small></h2>
+    <section id="today-section">
+      <h2 class="today-title"><span data-i18n="today">Today</span> <small id="today-summary"></small></h2>
+      <div id="empty" class="empty" hidden>
+        <p class="empty-emoji" aria-hidden="true">🌱</p>
+        <h3 data-i18n="emptyTitle">Start with one small habit</h3>
+        <p class="muted" data-i18n="emptyText">Tap one of these to start, or add your own.</p>
+        <div id="starters" class="starters"></div>
+        <button type="button" id="add-first" class="primary" data-i18n="addFirst">＋ Add a habit</button>
+      </div>
       <ul id="today" class="list"></ul>
+      <div id="yesterday" class="yesterday" hidden>
+        <h3><span data-i18n="yesterday">Yesterday</span> <small data-i18n="yesterdayHint">Forgot to tick one? You can until noon.</small></h3>
+        <ul id="yesterday-list" class="list"></ul>
+      </div>
     </section>
 
-    <section>
-      <h2 data-i18n="badges">Badges</h2>
-      <ul id="badges" class="badges"></ul>
-    </section>
+    <div id="install-banner" class="banner" hidden>
+      <p data-i18n="installBanner">📲 Put Habit Checker on your home screen.</p>
+      <button type="button" id="install" class="link" data-i18n="installShort">Install</button>
+      <button type="button" id="install-close" class="close" aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <p id="install-help" class="note" hidden></p>
+    <div id="reminders-banner" class="banner" hidden>
+      <p data-i18n="remindersBanner">🔔 Get a nudge at your habits' reminder times.</p>
+      <button type="button" id="enable-reminders" class="link" data-i18n="turnOn">Turn on</button>
+    </div>
+    <div id="reminder-note" class="banner quiet" hidden>
+      <p id="reminder-note-text"></p>
+      <button type="button" id="reminder-note-close" class="close" aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
 
     <details id="friends-section" class="fold" hidden>
       <summary><h2><span data-i18n="friends">Friends</span> <small id="friends-count"></small></h2></summary>
@@ -77,7 +98,8 @@
           <code id="invite-code"></code>
           <button type="button" id="share-invite" class="secondary" data-i18n="share">Share</button>
         </div>
-        <div class="row">
+        <button type="button" id="show-add" class="link" data-i18n="haveCode">Got a code from a friend?</button>
+        <div id="add-row" class="row" hidden>
           <input id="add-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code" aria-label="Friend's code" data-i18n-placeholder="friendCode" data-i18n-aria-label="friendCode">
           <button type="button" id="add-friend" class="secondary" data-i18n="addFriend">Add</button>
         </div>
@@ -88,30 +110,41 @@
             <button type="button" id="add-ok" class="primary" data-i18n="addFriendOk">Add friend</button>
           </div>
         </div>
-        <button type="button" id="show-recovery" class="link" data-i18n="showRecovery">🔑 Show my recovery code</button>
-        <div id="recovery-box" class="code-box" hidden>
-          <p class="muted" data-i18n="recoveryHelp">Save this code somewhere safe. It's the only way to get your profile and friends back on a new phone.</p>
-          <code id="recovery-code"></code>
-          <button type="button" id="copy-recovery" class="secondary" data-i18n="copy">Copy</button>
-        </div>
-        <button type="button" id="leave" class="link danger" data-i18n="deleteProfile">Delete my profile</button>
       </div>
     </details>
 
-    <details id="form-section" class="fold">
-      <summary><h2 id="form-title" data-i18n="newHabit">New habit</h2></summary>
-      <form id="add-form">
-        <div class="row">
-          <input type="hidden" name="emoji" value="✅">
-          <button type="button" id="emoji-btn" class="emoji-btn" data-i18n-aria-label="chooseEmoji" aria-label="Choose emoji" aria-expanded="false" aria-controls="emoji-picker">✅</button>
-          <input name="name" placeholder="e.g. Morning run" required aria-label="Habit name" data-i18n-placeholder="namePlaceholder" data-i18n-aria-label="habitName">
+    <details id="all-section" class="fold">
+      <summary><h2><span data-i18n="allHabits">All habits</span> <small id="all-count"></small></h2></summary>
+      <ul id="all" class="list"></ul>
+    </details>
+  </main>
+
+  <button type="button" id="fab" class="fab" aria-label="Add a habit" data-i18n-aria-label="addHabitLabel">＋</button>
+
+  <dialog id="habit-dialog" class="sheet" aria-labelledby="form-title">
+    <div class="sheet-head">
+      <h2 id="form-title" data-i18n="newHabit">New habit</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <form id="add-form">
+      <label class="field-label" for="habit-name" data-i18n="nameLabel">Name</label>
+      <div class="row nowrap">
+        <input type="hidden" name="emoji" value="✅">
+        <button type="button" id="emoji-btn" class="emoji-btn" data-i18n-aria-label="chooseEmoji" aria-label="Choose emoji" aria-expanded="false" aria-controls="emoji-picker">✅</button>
+        <input id="habit-name" name="name" placeholder="e.g. Morning run" required data-i18n-placeholder="namePlaceholder">
+      </div>
+      <div id="emoji-picker" class="emoji-picker" hidden>
+        <div id="emoji-grid" class="emoji-grid" role="group" aria-label="Emoji" data-i18n-aria-label="emoji"></div>
+        <label class="emoji-custom"><span data-i18n="customEmojiLabel">Or type your own</span> <input id="emoji-custom" maxlength="4" placeholder="🙂" aria-label="Custom emoji" data-i18n-aria-label="customEmoji"></label>
+      </div>
+      <fieldset class="days">
+        <legend class="field-label" data-i18n="days">Days</legend>
+        <div class="presets">
+          <button type="button" data-preset="daily" data-i18n="daily">Every day</button>
+          <button type="button" data-preset="weekdays" data-i18n="weekdaysPreset">Weekdays</button>
+          <button type="button" data-preset="weekends" data-i18n="weekends">Weekends</button>
         </div>
-        <div id="emoji-picker" class="emoji-picker" hidden>
-          <div id="emoji-grid" class="emoji-grid" role="group" aria-label="Emoji" data-i18n-aria-label="emoji"></div>
-          <label class="emoji-custom"><span data-i18n="customEmojiLabel">Or type your own</span> <input id="emoji-custom" maxlength="4" placeholder="🙂" aria-label="Custom emoji" data-i18n-aria-label="customEmoji"></label>
-        </div>
-        <fieldset class="days">
-          <legend data-i18n="days">Days</legend>
+        <div class="day-chips">
           <label><input type="checkbox" name="days" value="1" checked><span data-i18n-day="1">Mon</span></label>
           <label><input type="checkbox" name="days" value="2" checked><span data-i18n-day="2">Tue</span></label>
           <label><input type="checkbox" name="days" value="3" checked><span data-i18n-day="3">Wed</span></label>
@@ -119,24 +152,49 @@
           <label><input type="checkbox" name="days" value="5" checked><span data-i18n-day="5">Fri</span></label>
           <label><input type="checkbox" name="days" value="6" checked><span data-i18n-day="6">Sat</span></label>
           <label><input type="checkbox" name="days" value="0" checked><span data-i18n-day="0">Sun</span></label>
-        </fieldset>
-        <label class="private"><input type="checkbox" name="private"> <span data-i18n="privateLabel">🔒 Private</span> <small data-i18n="privateHint">Name hidden on the widget and in reminders</small></label>
-        <div class="row">
-          <label class="time"><span data-i18n="remindAt">Remind me at</span> <input type="time" name="time"></label>
-          <button type="button" id="cancel-edit" class="cancel" data-i18n="cancel" hidden>Cancel</button>
-          <button type="submit" data-i18n="addHabit">Add habit</button>
         </div>
-      </form>
-    </details>
+      </fieldset>
+      <label class="field-label" for="habit-time" data-i18n="reminderOptional">Reminder (optional)</label>
+      <input id="habit-time" type="time" name="time" class="time-input">
+      <label class="toggle-row"><input type="checkbox" name="private"> <span><span data-i18n="privateLabel">🔒 Private</span><small data-i18n="privateHint">Name hidden on the widget and in reminders</small></span></label>
+      <button type="submit" data-i18n="addHabit">Add habit</button>
+    </form>
+  </dialog>
 
-    <details id="all-section" class="fold">
-      <summary><h2><span data-i18n="allHabits">All habits</span> <small id="all-count"></small></h2></summary>
-      <ul id="all" class="list"></ul>
-    </details>
+  <dialog id="progress-dialog" class="sheet" aria-labelledby="progress-title">
+    <div class="sheet-head">
+      <h2 id="progress-title" data-i18n="progress">Your progress</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p id="progress-level" class="progress-level"></p>
+      <h3 data-i18n="badges">Badges</h3>
+      <ul id="badges" class="badge-tiles"></ul>
+    </div>
+  </dialog>
 
-  </main>
+  <dialog id="profile-dialog" class="sheet" aria-labelledby="profile-title">
+    <div class="sheet-head">
+      <h2 id="profile-title" data-i18n="profile">My profile</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="profile"><span class="avatar" id="profile-avatar" aria-hidden="true"></span><b id="profile-name"></b></div>
+      <div class="code-box">
+        <p class="muted" data-i18n="recoveryHelp">Save this code somewhere safe. It's the only way to get your profile and friends back on a new phone.</p>
+        <code id="recovery-code"></code>
+        <button type="button" id="copy-recovery" class="secondary" data-i18n="copy">Copy</button>
+      </div>
+      <div class="danger-zone">
+        <button type="button" id="leave" class="link danger" data-i18n="deleteProfile">Delete my profile</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="menu" class="menu" aria-label="Menu" data-i18n-aria-label="menu">
+    <button type="button" id="menu-profile" class="menu-item" data-i18n="profileItem" hidden>👤 My profile</button>
+    <button type="button" id="menu-confirm" class="menu-item" aria-pressed="true"></button>
+    <button type="button" id="menu-install" class="menu-item" data-i18n="install" hidden>📲 Install app</button>
     <button type="button" id="menu-move" class="menu-item" data-i18n="moveDataItem">📦 Move your data</button>
     <button type="button" id="menu-feedback" class="menu-item" data-i18n="feedbackItem" hidden>💬 Send feedback</button>
     <button type="button" id="menu-help" class="menu-item" data-i18n="helpItem">❓ Help &amp; what's new</button>
@@ -202,7 +260,7 @@
     </form>
   </dialog>
 
-  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-action" hidden></button></div>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

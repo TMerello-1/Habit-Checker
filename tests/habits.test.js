@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentStreak, editHabit, longestStreak, openToday, rewards, sharedStats } from '../src/habits.js';
+import { bestBadges, currentStreak, editHabit, levelProgress, longestStreak, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday } from '../src/habits.js';
 
 // 2026-10-12 is a Monday.
 const day = (d) => new Date(2026, 9, d);
@@ -89,4 +89,49 @@ test('sharedStats gives friends the level and the best streak, leaving private h
   };
   assert.deepEqual(sharedStats(habits, completions, today), { level: 1, streak: 2 });
   assert.deepEqual(sharedStats([], {}, today), { level: 1, streak: 0 });
+});
+
+test('level progress counts points within the current level', () => {
+  assert.deepEqual(levelProgress(510), { level: 3, into: 10, toNext: 240 });
+  assert.deepEqual(levelProgress(500), { level: 3, into: 0, toNext: 250 });
+  assert.deepEqual(levelProgress(0), { level: 1, into: 0, toNext: 250 });
+});
+
+test('best badges keep the highest milestone per habit and the next one', () => {
+  const badges = [
+    { habitId: 'a', milestone: 3 }, { habitId: 'a', milestone: 7 },
+    { habitId: 'b', milestone: 3 }, { habitId: 'c', milestone: 100 },
+  ];
+  assert.deepEqual(bestBadges(badges), [
+    { habitId: 'a', milestone: 7, next: 14 },
+    { habitId: 'b', milestone: 3, next: 7 },
+    { habitId: 'c', milestone: 100, next: null },
+  ]);
+});
+
+test('today sorts open habits by time, then done ones', () => {
+  const h = (id, time) => ({ ...daily, id, time });
+  const list = [h('late', '21:00'), h('none', ''), h('early', '07:00'), h('done', '06:00')];
+  const order = sortToday(list, { done: ['2026-10-12'] }, day(12)).map((x) => x.id);
+  assert.deepEqual(order, ['early', 'late', 'none', 'done']);
+});
+
+test('missed habits from yesterday can be checked until noon', () => {
+  const morning = new Date(2026, 9, 13, 9);
+  const afternoon = new Date(2026, 9, 13, 12);
+  // Mon 12th: daily missed, mwf missed; Tue 13th: both checked against Monday.
+  assert.deepEqual(missedYesterday([daily, mwf], {}, morning).map((x) => x.id), ['a', 'b']);
+  assert.deepEqual(missedYesterday([daily, mwf], { a: ['2026-10-12'] }, morning).map((x) => x.id), ['b']);
+  assert.deepEqual(missedYesterday([daily, mwf], {}, afternoon), []);
+  // Wed 14th: Tuesday isn't an mwf day.
+  assert.deepEqual(missedYesterday([mwf], {}, new Date(2026, 9, 14, 8)), []);
+  // A habit created today has no yesterday.
+  assert.deepEqual(missedYesterday([{ ...daily, createdAt: '2026-10-13' }], {}, morning), []);
+});
+
+test('schedule kind names common day sets', () => {
+  assert.equal(scheduleKind([1, 2, 3, 4, 5, 6, 0]), 'daily');
+  assert.equal(scheduleKind([5, 4, 3, 2, 1]), 'weekdays');
+  assert.equal(scheduleKind([6, 0]), 'weekends');
+  assert.equal(scheduleKind([1, 3, 5]), null);
 });
