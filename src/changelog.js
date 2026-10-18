@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 13, date: '2026-10-18',
+    en: 'Help explains how to get reminders on your smartwatch or fitness band.',
+    de: 'Die Hilfe erklärt, wie Erinnerungen auf deine Smartwatch oder dein Fitnessband kommen.',
+  },
+  {
     v: 12, date: '2026-10-18', notable: true,
     en: 'A fresh layout: Today comes first, add habits with the ＋ button, tap a whole row to check it off, and tap your level to see your badges. Forgot one yesterday? You can still check it off until noon.',
     de: 'Ein frisches Layout: Heute steht oben, neue Gewohnheiten legst du mit ＋ an, eine ganze Zeile hakt ab, und ein Tipp auf dein Level zeigt deine Abzeichen. Gestern eine vergessen? Bis 12 Uhr kannst du sie noch abhaken.',
