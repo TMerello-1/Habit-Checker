@@ -122,7 +122,7 @@ h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
 .pile-row { display: flex; gap: 8px; align-items: stretch; }
 .pile-row .check-row { flex: 1; min-width: 0; }
 .pile-row .minus {
-  flex: none; min-width: 52px; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer;
+  flex: none; min-width: 52px; font: inherit; font-size: 22px; font-weight: 600; color: var(--accent); cursor: pointer;
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
 }
 .pile-hint { display: block; margin: 4px 0 12px; }

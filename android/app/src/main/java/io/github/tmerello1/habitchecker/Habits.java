@@ -108,6 +108,9 @@ final class Habits {
     /** Rounds still to do this period, like pileCount(): planned days so far minus rounds done. */
     int pileCount(Habit habit, LocalDate date) {
         LocalDate start = periodStart(habit.pile, date);
+        // Days before the pile was switched on don't count (pileFrom() in habits.js).
+        String since = habit.json.optString("pileSince", "");
+        if (since.compareTo(start.toString()) > 0) start = LocalDate.parse(since);
         int n = 0;
         for (LocalDate d = start; !d.isAfter(date); d = d.plusDays(1)) if (isScheduled(habit, d)) n++;
         JSONArray done = completions.optJSONArray(habit.id);

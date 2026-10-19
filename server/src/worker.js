@@ -80,6 +80,7 @@ function cleanHabits(habits) {
     time: /^\d{2}:\d{2}$/.test(h.time) ? h.time : '',
     createdAt: isDateKey(h.createdAt) ? h.createdAt : '1970-01-01',
     ...(PILE_PERIODS.includes(h.pile) ? { pile: h.pile } : {}),
+    ...(isDateKey(h.pileSince) ? { pileSince: h.pileSince } : {}),
   }));
 }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentStreak, isOpen, longestStreak, missedYesterday, onToday, openToday, pileCount, remindOn, rewards, sharedStats } from '../src/habits.js';
+import { currentStreak, editHabit, isOpen, longestStreak, missedYesterday, onToday, openToday, pileCount, remindOn, rewards, sharedStats } from '../src/habits.js';
 
 // 2026-10-12 is a Monday; 2026-10-18 the Sunday after.
 const day = (d) => new Date(2026, 9, d);
@@ -94,4 +94,32 @@ test('reminders: on planned days while owed, and on the period\'s last day', () 
 test('only daily piles offer yesterday\'s check-off', () => {
   const morning = new Date(2026, 9, 13, 9);
   assert.deepEqual(missedYesterday([pushups, weekly], {}, morning).map((h) => h.pile), ['day']);
+});
+
+test('switching the pile on starts it that day', () => {
+  // Done every day but Tuesday the 13th; the pile goes on on Thursday the 15th.
+  const plain = { ...pushups, pile: undefined };
+  const on = editHabit(plain, { pile: 'week' }, day(15));
+  assert.equal(on.pileSince, '2026-10-15');
+  const c = { p: ['2026-10-12', '2026-10-14', '2026-10-15'] };
+  assert.equal(pileCount(on, c, day(15)), 0);
+  assert.equal(pileCount(on, { p: ['2026-10-12', '2026-10-14'] }, day(15)), 1);
+  // The new week streak starts fresh: this week isn't over yet.
+  assert.equal(currentStreak(on, c, day(15)), 0);
+});
+
+test('day badges from before the pile stay', () => {
+  const plain = { ...pushups, pile: undefined };
+  const c = { p: ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'] };
+  const on = editHabit(plain, { pile: 'week' }, day(5));
+  assert.deepEqual(rewards([on], c, day(5)).badges.map((b) => [b.milestone, b.unit]), [[3, 'day']]);
+});
+
+test('switching the pile off or changing its period', () => {
+  const on = editHabit({ ...pushups, pile: undefined }, { pile: 'week' }, day(15));
+  assert.equal(editHabit(on, { pile: undefined }, day(16)).pileSince, undefined);
+  assert.equal(editHabit(on, { pile: 'month' }, day(20)).pileSince, '2026-10-20');
+  assert.equal(editHabit(on, { name: 'Push-ups' }, day(20)).pileSince, '2026-10-15');
+  // Switched on the day it was created: nothing to keep apart.
+  assert.equal(editHabit({ ...pushups, pile: undefined }, { pile: 'day' }, day(1)).pileSince, undefined);
 });
