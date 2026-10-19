@@ -90,6 +90,25 @@ jobs:
         working-directory: friends-server
         run: npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --file schema.sql
 
+      - name: Read the Android app's signing certificate
+        if: steps.token.outputs.ready == 'true'
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          # Only the public certificate's fingerprint is used, for Android App Links.
+          FP=""
+          if [ -n "$ANDROID_KEYSTORE" ]; then
+            KS="$RUNNER_TEMP/release.keystore"
+            echo "$ANDROID_KEYSTORE" | base64 --decode > "$KS"
+            FP=$(keytool -list -v -keystore "$KS" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "${ANDROID_KEY_ALIAS:-habit-checker}" \
+              | awk '/SHA256:/ { print $2; exit }')
+            rm -f "$KS"
+          fi
+          [ -n "$FP" ] && echo "Android certificate SHA-256: $FP" || echo "::warning::No Android signing certificate found, so invite links won't open the Android app."
+          sed -i "s/^ANDROID_CERT_SHA256 = .*/ANDROID_CERT_SHA256 = \"$FP\"/" friends-server/wrangler.toml
+
       - name: Deploy
         if: steps.token.outputs.ready == 'true'
         working-directory: friends-server

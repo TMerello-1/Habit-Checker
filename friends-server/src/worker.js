@@ -254,12 +254,38 @@ async function listFeedback(env) {
   });
 }
 
+// Android App Links: the app claims https://<this server>/invite/CODE links, and Android
+// checks this file (with the fingerprint of the app's signing certificate, set at deploy)
+// before letting them open the app directly. GitHub Pages can't serve it, because App Links
+// need it at the domain root and the site lives under /Habit-Checker/.
+function assetLinks(env) {
+  const fingerprints = (env.ANDROID_CERT_SHA256 || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const body = fingerprints.length
+    ? [{
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: { namespace: 'android_app', package_name: 'io.github.tmerello1.habitchecker', sha256_cert_fingerprints: fingerprints },
+      }]
+    : [];
+  return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// An invite link. With the Android app installed, Android opens the app instead of getting
+// here; otherwise the browser is sent on to the web app with the code.
+function inviteLink(env, rawCode) {
+  const code = normalizeCode(decodeURIComponent(rawCode));
+  if (!isCode(code, INVITE_LENGTH)) return Response.redirect(env.APP_URL, 302);
+  return Response.redirect(`${env.APP_URL}#invite=${code}`, 302);
+}
+
 async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   const { method } = request;
   if (method === 'GET' && pathname === '/') return json({ ok: true, service: 'habit-checker-friends' });
   if (method === 'POST' && pathname === '/profiles') return createProfile(request, env);
   if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env, ctx);
+  if (method === 'GET' && pathname === '/.well-known/assetlinks.json') return assetLinks(env);
+  const invite = pathname.match(/^\/invite\/([^/]+)$/);
+  if (method === 'GET' && invite) return inviteLink(env, invite[1]);
 
   const me = await signedIn(request, env);
   if (!me) return fail(401, 'unknown profile');
