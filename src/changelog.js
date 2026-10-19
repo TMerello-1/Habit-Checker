@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 21, date: '2026-10-19',
+    en: 'Switching on "Pile up missed rounds" now starts the pile at 0 that day, and earlier days keep their streak badges. The button to take back a round is now ↶.',
+    de: 'Wenn du „Verpasste Runden stapeln“ einschaltest, startet der Stapel jetzt an dem Tag bei 0, und frühere Tage behalten ihre Serien-Abzeichen. Der Knopf, um eine Runde zurückzunehmen, ist jetzt ↶.',
+  },
+  {
     v: 20, date: '2026-10-19', notable: true,
     en: 'Pile habits: missed rounds pile up for the next day, and with a weekly or monthly target you can catch up any day before Sunday or the month\'s end and keep your streak. Turn it on when adding or editing a habit.',
     de: 'Stapel-Gewohnheiten: Verpasste Runden stapeln sich für den nächsten Tag, und mit Wochen- oder Monatsziel holst du sie an jedem Tag bis Sonntag oder Monatsende nach und behältst deine Serie. Einschalten beim Hinzufügen oder Bearbeiten einer Gewohnheit.',

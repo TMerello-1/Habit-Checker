@@ -3,7 +3,8 @@
 //
 // Habit shape:
 //   { id, name, emoji, days: [0-6 weekday numbers, 0 = Sunday], time: "HH:MM" | "", createdAt: "YYYY-MM-DD",
-//     private?: true, pastDays?: [{ until: "YYYY-MM-DD", days }], pile?: "day" | "week" | "month" }
+//     private?: true, pastDays?: [{ until: "YYYY-MM-DD", days }], pile?: "day" | "week" | "month",
+//     pileSince?: "YYYY-MM-DD" }
 // `days` is the current schedule. `pastDays` (oldest first) records earlier schedules,
 // each in effect for days before its `until`, so editing the days never rewrites history.
 // Completions shape (kept separately in state):
@@ -24,10 +25,15 @@ function daysOn(habit, key) {
 
 // Returns the habit with `changes` ({ name, emoji, days, time, private }) applied. Its id and
 // createdAt stay, so completions, streaks and badges carry over. A new set of days
-// takes effect today; the old one is kept in pastDays for the days before.
+// takes effect today; the old one is kept in pastDays for the days before. Switching the
+// pile on (or to another period) starts it today: earlier days keep the old rules.
 export function editHabit(habit, changes, today = new Date()) {
   const next = { ...habit, ...changes, id: habit.id, createdAt: habit.createdAt };
   const key = dateKey(today);
+  if ((habit.pile || '') !== (next.pile || '')) {
+    if (next.pile && key > habit.createdAt) next.pileSince = key;
+    else delete next.pileSince;
+  }
   const sameDays = [...habit.days].sort().join() === [...next.days].sort().join();
   if (sameDays) return { ...next, days: habit.days };
   if (key <= habit.createdAt) return next;
@@ -91,6 +97,11 @@ export function rewards(habits, completions, today = new Date()) {
     const best = longestStreak(habit, completions, today);
     for (const m of STREAK_MILESTONES) {
       if (best >= m) badges.push({ habitId: habit.id, milestone: m, unit: streakUnit(habit) });
+    }
+    // Day badges earned before the pile was switched on are kept.
+    if (habit.pile && habit.pileSince) {
+      const before = longestStreak({ ...habit, pile: undefined }, completions, addDays(parseKey(habit.pileSince), -1));
+      for (const m of STREAK_MILESTONES) if (before >= m) badges.push({ habitId: habit.id, milestone: m, unit: 'day' });
     }
   }
   const points = checkins * POINTS_PER_CHECKIN + badges.length * POINTS_PER_MILESTONE;
@@ -192,7 +203,8 @@ export function scheduleKind(days) {
 // Pile habits: every planned day adds one round to the pile, every round done takes one
 // off. 0 is up to date, above 0 is rounds still to do, below 0 is rounds ahead. The pile
 // starts at 0 again with each period (day, week from Monday, or month), and the streak
-// counts periods that ended with nothing left on the pile.
+// counts periods that ended with nothing left on the pile. Days before `pileSince` (the
+// day the pile was switched on) don't count toward it.
 export const PILE_PERIODS = ['day', 'week', 'month'];
 const DAYS_PER = { day: 1, week: 7, month: 30 };
 
@@ -223,25 +235,32 @@ function plannedBetween(habit, from, to) {
   return n;
 }
 
+// The pile's first day in the period around `date`.
+function pileFrom(habit, date) {
+  const start = periodStart(habit.pile, date);
+  const since = habit.pileSince ? parseKey(habit.pileSince) : start;
+  return since > start ? since : start;
+}
+
 // Rounds still to do this period, counting `date` itself as planned (so on the last
 // planned day a pile of 3 means 3 more rounds).
 export function pileCount(habit, completions, date = new Date()) {
-  const start = periodStart(habit.pile, date);
+  const start = pileFrom(habit, date);
   return plannedBetween(habit, start, date) - roundsBetween(completions, habit.id, dateKey(start), dateKey(date));
 }
 
 // What a whole period asked for and what was done in it.
 function tally(habit, completions, date) {
-  const start = periodStart(habit.pile, date);
+  const start = pileFrom(habit, date);
   const end = periodEnd(habit.pile, date);
-  return { start, planned: plannedBetween(habit, start, end), done: roundsBetween(completions, habit.id, dateKey(start), dateKey(end)) };
+  return { start: periodStart(habit.pile, date), planned: plannedBetween(habit, start, end), done: roundsBetween(completions, habit.id, dateKey(start), dateKey(end)) };
 }
 
 // Periods in a row with the pile cleared. The current period counts once all of its
 // rounds are done, and doesn't break the streak before it's over. Periods with nothing
 // planned are skipped.
 function pileStreak(habit, completions, today) {
-  const created = parseKey(habit.createdAt);
+  const created = parseKey(habit.pileSince || habit.createdAt);
   let streak = 0;
   const now = tally(habit, completions, today);
   if (now.planned && now.done >= now.planned) streak++;
@@ -260,7 +279,7 @@ function longestPileStreak(habit, completions, today) {
   const current = dateKey(periodStart(habit.pile, today));
   let best = 0;
   let run = 0;
-  for (let day = parseKey(habit.createdAt); day <= today; ) {
+  for (let day = parseKey(habit.pileSince || habit.createdAt); day <= today; ) {
     const p = tally(habit, completions, day);
     if (p.planned && p.done >= p.planned) best = Math.max(best, ++run);
     else if (p.planned && dateKey(p.start) !== current) run = 0;

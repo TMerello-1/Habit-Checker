@@ -88,7 +88,7 @@ async function send(state, sub) {
   const body = JSON.stringify({
     subscription: sub.toJSON(),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    habits: state.habits.map(({ id, name, emoji, days, time, createdAt, pile }) => ({ id, name, emoji, days, time, createdAt, pile })),
+    habits: state.habits.map(({ id, name, emoji, days, time, createdAt, pile, pileSince }) => ({ id, name, emoji, days, time, createdAt, pile, pileSince })),
     done,
     rounds: pileRounds(state),
     // Templates in the app's language; the server fills in {emoji} and {name}.

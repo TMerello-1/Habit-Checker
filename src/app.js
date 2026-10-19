@@ -188,7 +188,7 @@ function todayItem(h, date) {
   };
   if (h.pile && isDone(state.completions, h.id, date)) {
     li.className = 'pile-row';
-    const minus = Object.assign(document.createElement('button'), { type: 'button', className: 'minus', textContent: '−1' });
+    const minus = Object.assign(document.createElement('button'), { type: 'button', className: 'minus', textContent: '↶' });
     minus.setAttribute('aria-label', t('removeRound', { name: h.name }));
     minus.onclick = () => removeRound(h, date);
     li.append(minus);
@@ -196,7 +196,7 @@ function todayItem(h, date) {
   return li;
 }
 
-// "3 to go this week", "Pile cleared" or "1 ahead", plus the reminder time.
+// "3 to go this week", "Pile 0" or "1 ahead", plus the reminder time.
 function pileText(h, date) {
   const n = pileCount(h, state.completions, date);
   const text = n > 0 ? t(`pileToGo_${h.pile}`, { n }) : n < 0 ? t('pileAhead', { n: -n }) : t('pileClear');
