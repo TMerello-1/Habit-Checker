@@ -1,7 +1,8 @@
 // Friends: an anonymous profile on the friends server (FRIENDS_SERVER in config.js) and the
 // list of linked friends. The recovery code that signs this device in, the private
 // nicknames and a copy of the last friends list (for offline) are kept on this device under
-// FRIENDS_KEY, apart from the habit state. Nicknames never leave the device.
+// FRIENDS_KEY, apart from the habit state. Nicknames leave the device only inside the
+// encrypted habit backup (backup.js).
 
 import { FRIENDS_SERVER } from './config.js';
 
@@ -9,8 +10,10 @@ const FRIENDS_KEY = 'habit-checker:friends';
 
 export const friendsEnabled = () => Boolean(FRIENDS_SERVER);
 
-// `admin` (from GET /me) shows the feedback inbox in the ⋮ menu.
-const noFriends = () => ({ code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '' });
+// `admin` (from GET /me) shows the feedback inbox in the ⋮ menu. `backup` is true once
+// this device's habits are the ones to back up (see app.js), so a fresh sign-in can't
+// overwrite a backup before it has been offered back.
+const noFriends = () => ({ code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false });
 
 export function loadFriends() {
   try {
@@ -56,6 +59,9 @@ export const createProfile = (name) => api('POST', '/profiles', { body: { adj: n
 export const fetchMe = (code) => api('GET', '/me', { code });
 export const sendStats = (code, stats) => api('PUT', '/me/stats', { code, body: stats });
 export const deleteProfile = (code) => api('DELETE', '/me', { code });
+// The habit backup, already encrypted by backup.js.
+export const uploadBackup = (code, data) => api('PUT', '/me/backup', { code, body: { data } });
+export const fetchBackup = (code) => api('GET', '/me/backup', { code });
 export const createInvite = (code) => api('POST', '/invites', { code });
 export const previewInvite = (code, invite) => api('GET', `/invites/${encodeURIComponent(invite)}`, { code });
 export const acceptInvite = (code, invite) => api('POST', `/invites/${encodeURIComponent(invite)}/accept`, { code });

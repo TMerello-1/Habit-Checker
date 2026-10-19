@@ -2,10 +2,11 @@
 // through commit(), which saves and re-renders the whole view (the app is small
 // enough that diffing isn't worth it).
 
+import { backupHash, backupText, decryptBackup, encryptBackup } from './backup.js';
 import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { FRIENDS_SERVER } from './config.js';
-import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice } from './friends.js';
+import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
 import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
 import { bestBadges, currentStreak, dueToday, editHabit, isDone, levelProgress, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES } from './habits.js';
@@ -35,6 +36,7 @@ function commit() {
   syncPush(state);
   render();
   sendStatsSoon();
+  backupSoon();
 }
 
 // Checking a habit off asks first, so a stray tap or wishful thinking doesn't
@@ -701,6 +703,7 @@ function friendItem(f) {
 function commitFriends() {
   saveFriends(friends);
   renderFriends();
+  backupSoon();
 }
 
 // Runs a server call, turning failures into a toast. `messages` maps HTTP statuses (0 for
@@ -713,7 +716,7 @@ async function friendsCall(fn, messages = {}) {
     // A null message keeps a background call quiet, e.g. a refresh while offline.
     if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
     if (err.status === 401 && friends.me) {
-      friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '' };
+      friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '', backup: false, backedUp: '' };
       commitFriends();
       return toast(t('profileGone'));
     }
@@ -752,13 +755,90 @@ function sendStatsSoon(delay = 1500) {
   }, delay);
 }
 
+// Habit backup (see backup.js): while signed in, the habits, their history and the
+// nicknames are kept encrypted on the friends server, shortly after each change.
+// `friends.backedUp` fingerprints the last upload, so an unchanged device sends nothing.
+let backupTimer;
+function backupSoon(delay = 3000) {
+  if (!friends.me || !friends.backup) return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(async () => {
+    const code = friends.code;
+    const text = backupText(state, friends.nicknames);
+    const hash = await backupHash(text);
+    if (hash === friends.backedUp) return;
+    await friendsCall(async () => {
+      await uploadBackup(code, await encryptBackup(code, text));
+      if (code !== friends.code) return;
+      friends.backedUp = hash;
+      saveFriends(friends);
+    }, { 0: null });
+  }, delay);
+}
+
+// After signing in, decides whose habits count: the backup's when this device has none,
+// or the person's pick when both have some. Until then nothing is uploaded, so signing
+// in can't overwrite a backup before it's offered back. Offline, it tries again next start.
+async function checkBackup() {
+  if (!friends.me || friends.backup) return;
+  const code = friends.code;
+  let saved = null;
+  try {
+    saved = await fetchBackup(code);
+  } catch (err) {
+    if (!(err instanceof ServerError) || err.status !== 404) return;
+  }
+  let backup = null;
+  try {
+    if (saved) backup = await decryptBackup(code, saved.data);
+  } catch {
+    // Damaged or unreadable: this device's habits replace it.
+  }
+  if (code !== friends.code) return;
+  const differs = backup && backupText({ ...state, ...backup }) !== backupText(state);
+  if (differs && backup.habits.length && state.habits.length) return offerBackup(backup, saved.updatedAt);
+  if (differs && backup.habits.length) useBackup(backup);
+  else if (backup) friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+  backupDecided();
+}
+
+function offerBackup(backup, updatedAt) {
+  const dlg = $('#backup-dialog');
+  const date = new Date(updatedAt).toLocaleDateString(getLang(), { dateStyle: 'medium' });
+  $('#backup-text').textContent = t('backupOffer', { n: backup.habits.length, date, here: state.habits.length });
+  dlg.returnValue = '';
+  dlg.onclose = () => {
+    // Closed without a choice: asked again next time.
+    if (!dlg.returnValue) return;
+    if (dlg.returnValue === 'use') useBackup(backup);
+    else friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+    backupDecided();
+  };
+  dlg.showModal();
+}
+
+function useBackup(backup) {
+  state = { ...state, habits: backup.habits, completions: backup.completions, notified: {} };
+  friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+  resetForm();
+  commit();
+  toast(t('backupRestored', { n: backup.habits.length }));
+}
+
+function backupDecided() {
+  friends.backup = true;
+  commitFriends();
+  backupSoon(0);
+}
+
 // A new profile (`showProfile`) opens My profile straight away, so its recovery code gets saved.
 async function signedIn(code, data, message, showProfile = false) {
-  friends = { ...friends, code, me: data.me, admin: Boolean(data.admin), friends: data.friends || [], sent: '' };
+  friends = { ...friends, code, me: data.me, admin: Boolean(data.admin), friends: data.friends || [], sent: '', backup: false, backedUp: '' };
   commitFriends();
   if (showProfile) $('#profile-dialog').showModal();
   toast(t(message, { name: nameOf(data.me) }));
   sendStatsSoon(0);
+  checkBackup();
   $('#invite-elsewhere').hidden = true;
   if (pendingInvite) lookUpInvite(pendingInvite);
 }
@@ -894,7 +974,7 @@ $('#leave').onclick = (e) => {
   btn.textContent = t('deleteProfile');
   friendsCall(async () => {
     await deleteProfile(friends.code);
-    friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '' };
+    friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '' };
     $('#invite-box').hidden = true;
     $('#profile-dialog').close();
     commitFriends();
@@ -1348,5 +1428,6 @@ renderMyFeedback();
 refreshFriends();
 refreshMyFeedback(true);
 sendStatsSoon();
+checkBackup();
 checkReminders();
 enablePush(state).then(syncAdminDevice);
