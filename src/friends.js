@@ -13,7 +13,7 @@ export const friendsEnabled = () => Boolean(FRIENDS_SERVER);
 // `admin` (from GET /me) shows the feedback inbox in the ⋮ menu. `backup` is true once
 // this device's habits are the ones to back up (see app.js), so a fresh sign-in can't
 // overwrite a backup before it has been offered back.
-const noFriends = () => ({ code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false });
+const noFriends = () => ({ code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '', backedUpAt: '' });
 
 export function loadFriends() {
   try {
