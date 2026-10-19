@@ -7,7 +7,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -49,8 +48,8 @@ final class Reminders {
         Habits habits = new Habits(Store.state(ctx));
         LocalDateTime now = LocalDateTime.now();
         String today = now.toLocalDate().toString();
-        for (Habits.Habit h : habits.scheduled(LocalDate.now())) {
-            if (habits.isDone(h, now.toLocalDate())) nm.cancel(h.id, 0);
+        for (Habits.Habit h : habits.all()) {
+            if (!habits.isOpen(h, now.toLocalDate())) nm.cancel(h.id, 0);
         }
         if (!nm.areNotificationsEnabled()) return;
 

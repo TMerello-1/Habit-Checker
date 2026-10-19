@@ -9,6 +9,15 @@ const habit = { id: 'a', name: 'Read', emoji: '📚', days: [1], time: '08:00', 
 const mondayNY = new Date('2026-10-12T12:03:00Z');
 const record = (extra = {}) => ({ timeZone: 'America/New_York', habits: [habit], done: {}, notified: {}, ...extra });
 
+test('a weekly pile habit is reminded by what is left on its pile', () => {
+  const pile = { ...habit, days: [1, 2, 3, 4, 5], pile: 'week' };
+  // Sunday 2026-10-18, 08:03 in New York: the week's last day, nothing done.
+  const sundayNY = new Date('2026-10-18T12:03:00Z');
+  assert.deepEqual(dueHabits(record({ habits: [pile] }), sundayNY).map((h) => h.id), ['a']);
+  const rounds = { a: Array(5).fill('2026-10-14') };
+  assert.equal(dueHabits(record({ habits: [pile], rounds }), sundayNY).length, 0);
+});
+
 test('localClock reads the date and time in the user timezone', () => {
   const { today, minutes, day } = localClock('America/New_York', mondayNY);
   assert.equal(today, '2026-10-12');

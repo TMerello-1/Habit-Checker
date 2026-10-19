@@ -6,6 +6,7 @@
     <string name="widget_nothing_today">Nothing scheduled today.</string>
     <string name="widget_all_done">All done today 🎉</string>
     <string name="widget_count">%1$d of %2$d done</string>
+    <string name="widget_pile">%d to go</string>
     <string name="widget_private">🔒  Private habit</string>
     <string name="channel_name">Habit reminders</string>
     <string name="reminder_title">%1$s Time for: %2$s</string>

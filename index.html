@@ -157,6 +157,14 @@
       </fieldset>
       <label class="field-label" for="habit-time" data-i18n="reminderOptional">Reminder (optional)</label>
       <input id="habit-time" type="time" name="time" class="time-input">
+      <label class="field-label" for="habit-pile" data-i18n="pileLabel">Pile up missed rounds</label>
+      <select id="habit-pile" name="pile" class="time-input">
+        <option value="" data-i18n="pileOff">Off</option>
+        <option value="day" data-i18n="pileDay">Catch up by the end of each day</option>
+        <option value="week" data-i18n="pileWeek">Catch up by Sunday</option>
+        <option value="month" data-i18n="pileMonth">Catch up by the end of the month</option>
+      </select>
+      <small class="muted pile-hint" data-i18n="pileHint">Every planned day adds a round, every tap takes one off. Clear the pile in time to keep your streak.</small>
       <label class="toggle-row"><input type="checkbox" name="private"> <span><span data-i18n="privateLabel">🔒 Private</span><small data-i18n="privateHint">Name hidden on the widget and in reminders</small></span></label>
       <button type="submit" data-i18n="addHabit">Add habit</button>
     </form>

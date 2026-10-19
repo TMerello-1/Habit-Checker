@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 18, date: '2026-10-19', notable: true,
+    en: 'Pile habits: missed rounds pile up for the next day, and with a weekly or monthly target you can catch up any day before Sunday or the month\'s end and keep your streak. Turn it on when adding or editing a habit.',
+    de: 'Stapel-Gewohnheiten: Verpasste Runden stapeln sich für den nächsten Tag, und mit Wochen- oder Monatsziel holst du sie an jedem Tag bis Sonntag oder Monatsende nach und behältst deine Serie. Einschalten beim Hinzufügen oder Bearbeiten einer Gewohnheit.',
+  },
+  {
     v: 17, date: '2026-10-19', notable: true,
     en: 'Feedback gets answers: replies and reactions to what you sent show up under ⋮ → Send feedback, with a notification, and you can answer back. It all stays anonymous.',
     de: 'Feedback bekommt Antworten: Antworten und Reaktionen auf dein Feedback erscheinen unter ⋮ → Feedback senden, mit Benachrichtigung, und du kannst zurückschreiben. Alles bleibt anonym.',
