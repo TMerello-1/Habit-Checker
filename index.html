@@ -82,10 +82,11 @@
           <button type="button" id="reroll" class="secondary" data-i18n="reroll">🎲 Another name</button>
           <button type="button" id="join" class="primary" data-i18n="pickName">Pick this name</button>
         </div>
-        <button type="button" id="show-restore" class="link" data-i18n="haveProfile">Already have a profile? Enter your recovery code</button>
+        <p id="ios-storage-note" class="muted" data-i18n="iosStorageNote" hidden>On iPhone, the home screen app keeps its own data, apart from Safari. Made your profile in Safari? Sign in here with your recovery code.</p>
+        <button type="button" id="show-restore" class="secondary" data-i18n="haveProfile">🔑 Already have a profile? Sign in with your recovery code</button>
         <div id="restore" class="row" hidden>
           <input id="restore-code" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" aria-label="Recovery code" data-i18n-aria-label="recoveryCode">
-          <button type="button" id="restore-btn" class="primary" data-i18n="restore">Restore</button>
+          <button type="button" id="restore-btn" class="primary" data-i18n="restore">Sign in</button>
         </div>
       </div>
       <div id="friends-main" class="panel" hidden>
@@ -193,6 +194,7 @@
 
   <dialog id="menu" class="menu" aria-label="Menu" data-i18n-aria-label="menu">
     <button type="button" id="menu-profile" class="menu-item" data-i18n="profileItem" hidden>👤 My profile</button>
+    <button type="button" id="menu-signin" class="menu-item" data-i18n="signInItem" hidden>🔑 Sign in with recovery code</button>
     <button type="button" id="menu-confirm" class="menu-item" aria-pressed="true"></button>
     <button type="button" id="menu-install" class="menu-item" data-i18n="install" hidden>📲 Install app</button>
     <button type="button" id="menu-move" class="menu-item" data-i18n="moveDataItem">📦 Move your data</button>
