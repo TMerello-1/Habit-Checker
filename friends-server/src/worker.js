@@ -14,9 +14,18 @@
 //   GET    /invites/<code>                          → { profile }  who sent it, before accepting
 //   POST   /invites/<code>/accept                   → { friend }
 //   DELETE /friends/<id>
-//   POST   /feedback               { text, lang, platform }   no sign-in needed, anonymous
+//   POST   /feedback               { text, lang, platform, endpoint?, titles? }
+//                                                  → { id, token }   no sign-in needed, anonymous
 //   GET    /feedback                                → { feedback }   admins only
 //   DELETE /feedback/<id>                                             admins only
+//   POST   /feedback/<id>/messages { text }                           admins only: reply
+//   PUT    /feedback/<id>/reaction { emoji }                          admins only ('' clears)
+//
+// The sender's side of a feedback thread uses the token from POST /feedback instead of a
+// profile, sent as "X-Feedback-Token: <token>":
+//   GET    /threads/<id>                            → { reaction, messages }
+//   POST   /threads/<id>/messages  { text }                           answer back
+//   PUT    /threads/<id>/device    { endpoint, titles }               where to push replies
 //   PUT    /admin/device           { endpoint, title }                admins only
 //   DELETE /admin/device           { endpoint }                       admins only
 //
@@ -32,11 +41,13 @@ const INVITE_DAYS = 7;
 const MAX_FRIENDS = 200;
 const MAX_FEEDBACK_LENGTH = 2000;
 const FEEDBACK_PER_HOUR = 5;
+const ANSWERS_PER_HOUR = 10; // a sender's messages in one thread
+const ADMIN_PUSH_GAP_MS = 5 * 60_000;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Feedback-Token',
 };
 
 const json = (body, status = 200) =>
@@ -197,26 +208,162 @@ async function sendFeedback(request, env, ctx) {
     .bind(ipHash, hourAgo)
     .first();
   if (recent.n >= FEEDBACK_PER_HOUR) return fail(429, 'too much feedback');
-  await env.DB.prepare('INSERT INTO feedback (id, text, lang, platform, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), text, lang, platform, ipHash, now.toISOString())
-    .run();
-  const notifying = notifyAdmins(env, text).catch((err) => console.error('admin push failed', err));
-  if (ctx) ctx.waitUntil(notifying);
-  else await notifying;
+  const id = crypto.randomUUID();
+  const token = randomCode(RECOVERY_LENGTH);
+  const device = senderDevice(body);
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO feedback (id, text, lang, platform, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(id, text, lang, platform, ipHash, now.toISOString()),
+    env.DB.prepare(
+      `INSERT INTO feedback_threads (feedback_id, token_hash, endpoint, reply_title, reaction_title, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(id, await sha256(token), device.endpoint, device.replyTitle, device.reactionTitle, now.toISOString()),
+  ]);
+  inBackground(ctx, notifyAdmins(env, text));
+  return json({ ok: true, id, token }, 201);
+}
+
+// Pushes run after the response when the runtime allows it (ctx.waitUntil), and a failed
+// push never fails the request.
+async function inBackground(ctx, promise) {
+  const quiet = promise.catch((err) => console.error('push failed', err));
+  if (ctx) ctx.waitUntil(quiet);
+  else await quiet;
+}
+
+const MESSAGE_LENGTH = MAX_FEEDBACK_LENGTH;
+const cleanText = (v) => (typeof v === 'string' ? v.trim() : '');
+const isEndpoint = (v) => typeof v === 'string' && /^https:\/\/\S{1,500}$/.test(v);
+
+// The sender's push endpoint and notification titles (in the sender's language; the
+// reaction title has an {emoji} slot). Missing parts become '' and mean no push.
+function senderDevice(body) {
+  const title = (v) => cleanText(v).slice(0, 80);
+  return {
+    endpoint: isEndpoint(body?.endpoint) ? body.endpoint : '',
+    replyTitle: title(body?.titles?.reply),
+    reactionTitle: title(body?.titles?.reaction),
+  };
+}
+
+// A thread the request's X-Feedback-Token opens, or null.
+async function senderThread(request, env, id) {
+  const token = normalizeCode(request.headers.get('X-Feedback-Token') || '');
+  if (!isCode(token, RECOVERY_LENGTH)) return null;
+  return env.DB.prepare('SELECT * FROM feedback_threads WHERE feedback_id = ? AND token_hash = ?')
+    .bind(id, await sha256(token))
+    .first();
+}
+
+async function threadMessages(env, id) {
+  const { results } = await env.DB.prepare('SELECT * FROM feedback_messages WHERE feedback_id = ? ORDER BY created_at, rowid')
+    .bind(id)
+    .all();
+  return results.map((r) => ({ id: r.id, fromAdmin: Boolean(r.from_admin), text: r.text, createdAt: r.created_at }));
+}
+
+async function addMessage(env, id, fromAdmin, text) {
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO feedback_messages (id, feedback_id, from_admin, text, created_at) VALUES (?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), id, fromAdmin ? 1 : 0, text, now),
+    env.DB.prepare('UPDATE feedback_threads SET updated_at = ? WHERE feedback_id = ?').bind(now, id),
+  ]);
+}
+
+const preview = (text) => (text.length > 140 ? `${text.slice(0, 139)}…` : text);
+
+// Tells the sender about a reply or reaction, if their device gave a push endpoint.
+async function notifySender(env, thread, title, body) {
+  if (!env.PUSH || !thread.endpoint || !title) return;
+  const res = await env.PUSH.fetch('https://internal/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoints: [thread.endpoint], message: { title, body, tag: `feedback-${thread.feedback_id}`, url: '#feedback' } }),
+  });
+  if (!res.ok) throw new Error(`push server answered ${res.status}`);
+  const { unknown = [] } = await res.json();
+  if (unknown.length) await env.DB.prepare("UPDATE feedback_threads SET endpoint = '' WHERE feedback_id = ?").bind(thread.feedback_id).run();
+}
+
+async function senderRoute(request, env, ctx, id, action) {
+  const thread = await senderThread(request, env, id);
+  if (!thread) return fail(404, 'thread not found');
+  const { method } = request;
+  if (method === 'GET' && !action) return json({ reaction: thread.reaction, messages: await threadMessages(env, id) });
+  if (method === 'PUT' && action === 'device') {
+    const device = senderDevice(await request.json().catch(() => null));
+    await env.DB.prepare('UPDATE feedback_threads SET endpoint = ?, reply_title = ?, reaction_title = ? WHERE feedback_id = ?')
+      .bind(device.endpoint, device.replyTitle, device.reactionTitle, id)
+      .run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && action === 'messages') {
+    const text = cleanText((await request.json().catch(() => null))?.text);
+    if (!text || text.length > MESSAGE_LENGTH) return fail(400, 'invalid message');
+    const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+    const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM feedback_messages WHERE feedback_id = ? AND from_admin = 0 AND created_at > ?')
+      .bind(id, hourAgo)
+      .first();
+    if (recent.n >= ANSWERS_PER_HOUR) return fail(429, 'too many messages');
+    await addMessage(env, id, false, text);
+    inBackground(ctx, notifyAdmins(env, text));
+    return json({ ok: true }, 201);
+  }
+  return fail(404, 'not found');
+}
+
+async function adminReply(request, env, ctx, id) {
+  const text = cleanText((await request.json().catch(() => null))?.text);
+  if (!text || text.length > MESSAGE_LENGTH) return fail(400, 'invalid message');
+  const thread = await env.DB.prepare('SELECT * FROM feedback_threads WHERE feedback_id = ?').bind(id).first();
+  if (!thread) return fail(404, 'no thread');
+  await addMessage(env, id, true, text);
+  inBackground(ctx, notifySender(env, thread, thread.reply_title, preview(text)));
   return json({ ok: true }, 201);
+}
+
+async function adminReact(request, env, ctx, id) {
+  const emoji = cleanText((await request.json().catch(() => null))?.emoji);
+  if (emoji.length > 16) return fail(400, 'invalid reaction');
+  const thread = await env.DB.prepare('SELECT * FROM feedback_threads WHERE feedback_id = ?').bind(id).first();
+  if (!thread) return fail(404, 'no thread');
+  await env.DB.prepare('UPDATE feedback_threads SET reaction = ?, updated_at = ? WHERE feedback_id = ?')
+    .bind(emoji, new Date().toISOString(), id)
+    .run();
+  if (emoji && emoji !== thread.reaction) {
+    const feedback = await env.DB.prepare('SELECT text FROM feedback WHERE id = ?').bind(id).first();
+    inBackground(ctx, notifySender(env, thread, thread.reaction_title.replace('{emoji}', emoji), preview(feedback?.text || '')));
+  }
+  return json({ ok: true });
 }
 
 // Each admin device gets "<its title>" with the start of the feedback as the body. Each
 // language's devices go in one request; endpoints the push server no longer knows are dropped.
-export async function notifyAdmins(env, text) {
+// At most one push per ADMIN_PUSH_GAP_MS: what arrives in between stays quiet, and the next
+// push adds "(+N)" for everything since the last one.
+export async function notifyAdmins(env, text, now = new Date()) {
   if (!env.PUSH) return;
+  const last = await env.DB.prepare('SELECT last_at FROM admin_push WHERE id = 1').first();
+  if (last && now.getTime() - Date.parse(last.last_at) < ADMIN_PUSH_GAP_MS) return;
+  const since = last?.last_at || now.toISOString();
+  const count = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM feedback WHERE created_at > ?1)
+          + (SELECT COUNT(*) FROM feedback_messages WHERE from_admin = 0 AND created_at > ?1) AS n`,
+  )
+    .bind(since)
+    .first();
+  await env.DB.prepare('INSERT INTO admin_push (id, last_at) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET last_at = excluded.last_at')
+    .bind(now.toISOString())
+    .run();
   const { results } = await env.DB.prepare(
     'SELECT d.endpoint, d.title, p.adj, p.animal, p.num FROM admin_devices d JOIN profiles p ON p.id = d.profile_id',
   ).all();
   const byTitle = new Map();
   // A profile taken off ADMINS stops getting these, even with its device still listed.
   for (const r of results.filter((row) => isAdmin(env, row))) byTitle.set(r.title, [...(byTitle.get(r.title) || []), r.endpoint]);
-  const body = text.length > 140 ? `${text.slice(0, 139)}…` : text;
+  const more = count.n > 1 ? ` (+${count.n - 1})` : '';
+  const body = preview(text) + more;
   for (const [title, endpoints] of byTitle) {
     const res = await env.PUSH.fetch('https://internal/notify', {
       method: 'POST',
@@ -247,10 +394,28 @@ async function saveAdminDevice(request, env, me) {
   return json({ ok: true });
 }
 
+// Newest first. Feedback sent before replies existed has no thread, so `replyable` is false.
 async function listFeedback(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM feedback ORDER BY created_at DESC LIMIT 500').all();
+  const { results } = await env.DB.prepare(
+    `SELECT f.*, t.reaction, t.feedback_id AS thread FROM feedback f
+     LEFT JOIN feedback_threads t ON t.feedback_id = f.id ORDER BY f.created_at DESC LIMIT 500`,
+  ).all();
+  const { results: messages } = await env.DB.prepare(
+    `SELECT m.* FROM feedback_messages m JOIN feedback f ON f.id = m.feedback_id ORDER BY m.created_at, m.rowid`,
+  ).all();
   return json({
-    feedback: results.map((r) => ({ id: r.id, text: r.text, lang: r.lang, platform: r.platform, createdAt: r.created_at })),
+    feedback: results.map((r) => ({
+      id: r.id,
+      text: r.text,
+      lang: r.lang,
+      platform: r.platform,
+      createdAt: r.created_at,
+      replyable: Boolean(r.thread),
+      reaction: r.reaction || '',
+      messages: messages
+        .filter((m) => m.feedback_id === r.id)
+        .map((m) => ({ id: m.id, fromAdmin: Boolean(m.from_admin), text: m.text, createdAt: m.created_at })),
+    })),
   });
 }
 
@@ -286,6 +451,8 @@ async function route(request, env, ctx) {
   if (method === 'GET' && pathname === '/.well-known/assetlinks.json') return assetLinks(env);
   const invite = pathname.match(/^\/invite\/([^/]+)$/);
   if (method === 'GET' && invite) return inviteLink(env, invite[1]);
+  const thread = pathname.match(/^\/threads\/([\w-]{1,64})(?:\/(messages|device))?$/);
+  if (thread) return senderRoute(request, env, ctx, thread[1], thread[2]);
 
   const me = await signedIn(request, env);
   if (!me) return fail(401, 'unknown profile');
@@ -306,9 +473,15 @@ async function route(request, env, ctx) {
     if ((method === 'PUT' || method === 'DELETE') && pathname === '/admin/device') return saveAdminDevice(request, env, me);
     if (method === 'GET' && pathname === '/feedback') return listFeedback(env);
     if ((m = pathname.match(/^\/feedback\/([\w-]{1,64})$/)) && method === 'DELETE') {
-      await env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(m[1]).run();
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(m[1]),
+        env.DB.prepare('DELETE FROM feedback_threads WHERE feedback_id = ?').bind(m[1]),
+        env.DB.prepare('DELETE FROM feedback_messages WHERE feedback_id = ?').bind(m[1]),
+      ]);
       return json({ ok: true });
     }
+    if ((m = pathname.match(/^\/feedback\/([\w-]{1,64})\/messages$/)) && method === 'POST') return adminReply(request, env, ctx, m[1]);
+    if ((m = pathname.match(/^\/feedback\/([\w-]{1,64})\/reaction$/)) && method === 'PUT') return adminReact(request, env, ctx, m[1]);
   }
   return fail(404, 'not found');
 }

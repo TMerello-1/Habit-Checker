@@ -33,16 +33,18 @@ public class MainActivity extends Activity {
     // each save of the friends data too (FeedbackJob needs to know about admin profiles).
     private static final String BRIDGE_JS = "(function () {"
             + "  if (window.__habitBridge) return; window.__habitBridge = true;"
-            + "  var KEY = 'habit-checker:v1', FRIENDS = 'habit-checker:friends';"
+            + "  var KEY = 'habit-checker:v1', FRIENDS = 'habit-checker:friends', FEEDBACK = 'habit-checker:feedback';"
             + "  var push = function () { HabitCheckerBridge.saveState(localStorage.getItem(KEY) || ''); };"
             + "  var pushFriends = function () { HabitCheckerBridge.saveFriends(localStorage.getItem(FRIENDS) || '{}'); };"
+            + "  var pushFeedback = function () { HabitCheckerBridge.saveFeedback(localStorage.getItem(FEEDBACK) || '[]'); };"
             + "  var setItem = Storage.prototype.setItem;"
             + "  Storage.prototype.setItem = function (k) {"
             + "    setItem.apply(this, arguments);"
             + "    if (k === KEY) push();"
             + "    if (k === FRIENDS) pushFriends();"
+            + "    if (k === FEEDBACK) pushFeedback();"
             + "  };"
-            + "  push(); pushFriends();"
+            + "  push(); pushFriends(); pushFeedback();"
             + "})();";
 
     private WebView web;
@@ -196,6 +198,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void saveFriends(String json) {
             FeedbackJob.update(getApplicationContext(), json);
+        }
+
+        @JavascriptInterface
+        public void saveFeedback(String json) {
+            FeedbackJob.updateThreads(getApplicationContext(), json);
         }
     }
 }

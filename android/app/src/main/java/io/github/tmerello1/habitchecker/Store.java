@@ -43,4 +43,22 @@ final class Store {
     static void setFeedbackSeen(Context ctx, String createdAt) {
         prefs(ctx).edit().putString("feedbackSeen", createdAt).apply();
     }
+
+    /** The feedback threads the web app keeps (habit-checker:feedback), as JSON. */
+    static String threads(Context ctx) {
+        return prefs(ctx).getString("threads", "[]");
+    }
+
+    static void setThreads(Context ctx, String json) {
+        prefs(ctx).edit().putString("threads", json).apply();
+    }
+
+    /** "replies|reaction" FeedbackJob last saw on a thread, or `fallback` before the first check. */
+    static String threadSeen(Context ctx, String id, String fallback) {
+        return prefs(ctx).getString("threadSeen:" + id, fallback);
+    }
+
+    static void setThreadSeen(Context ctx, String id, String seen) {
+        prefs(ctx).edit().putString("threadSeen:" + id, seen).apply();
+    }
 }

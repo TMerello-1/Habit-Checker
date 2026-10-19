@@ -5,7 +5,8 @@
 import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { FRIENDS_SERVER } from './config.js';
-import { acceptInvite, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, friendsEnabled, loadFriends, previewInvite, registerAdminDevice, removeFriend, saveFriends, sendFeedback, sendStats, ServerError } from './friends.js';
+import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice } from './friends.js';
+import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
 import { bestBadges, currentStreak, dueToday, editHabit, isDone, levelProgress, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
@@ -903,38 +904,190 @@ $('#leave').onclick = (e) => {
 
 // Feedback from the ⋮ menu goes to the friends server anonymously (no profile needed).
 // Profiles listed as admins on the server also get a "Feedback inbox" in the menu.
+// Sending returns a token that lets this device read replies and answer back, still
+// anonymously (see feedback.js). Threads live under FEEDBACK_KEY, apart from everything else.
+let myFeedback = (() => {
+  try {
+    return parseThreads(localStorage.getItem(FEEDBACK_KEY));
+  } catch {
+    return [];
+  }
+})();
+
+function saveMyFeedback() {
+  try {
+    localStorage.setItem(FEEDBACK_KEY, JSON.stringify(myFeedback));
+  } catch {
+    // Blocked storage: replies only last for this session.
+  }
+  renderMyFeedback();
+}
+
+// Titles for pushes to this device, in its language.
+const feedbackTitles = () => ({ reply: t('feedbackReplyTitle'), reaction: t('feedbackReactionTitle') });
+
 $('#menu-feedback').onclick = () => {
   $('#menu').close();
-  $('#feedback-dialog').showModal();
+  openMyFeedback();
 };
+
+function openMyFeedback() {
+  if (!$('#feedback-dialog').open) $('#feedback-dialog').showModal();
+  myFeedback = markSeen(myFeedback);
+  saveMyFeedback();
+  refreshMyFeedback(true);
+}
 
 $('#feedback-send').onclick = (e) => {
   const text = $('#feedback-text').value.trim();
   if (!text) return $('#feedback-text').focus();
   busy(e.currentTarget, () =>
     friendsCall(async () => {
-      await sendFeedback({ text, lang, platform: androidApp ? 'android' : 'web' });
+      const endpoint = await pushEndpoint().catch(() => null);
+      const { id, token } = await sendFeedback({
+        text, lang, platform: androidApp ? 'android' : 'web', endpoint: endpoint || undefined, titles: feedbackTitles(),
+      });
       $('#feedback-text').value = '';
-      $('#feedback-dialog').close();
+      if (id && token) {
+        myFeedback = addThread(myFeedback, { id, token, text, createdAt: new Date().toISOString() });
+        myFeedback[0].endpoint = endpoint || '';
+        saveMyFeedback();
+      }
       toast(t('feedbackThanks'));
     }, { 0: 'feedbackOffline', 429: 'feedbackTooMuch' }),
   );
 };
 
+// Fetches replies for open threads (at most once a minute unless `now`), and tells the
+// server about this device's push endpoint when it has a new one.
+async function refreshMyFeedback(now = false) {
+  if (!friendsEnabled() || !myFeedback.some((th) => !th.closed)) return;
+  if (!now && Date.now() - (refreshMyFeedback.last || 0) < 60_000) return;
+  refreshMyFeedback.last = Date.now();
+  const endpoint = await pushEndpoint().catch(() => null);
+  for (const thread of myFeedback.filter((th) => !th.closed)) {
+    try {
+      const remote = await fetchThread(thread.id, thread.token);
+      myFeedback = updateThread(myFeedback, thread.id, remote);
+      if (endpoint && thread.endpoint !== endpoint) {
+        await threadDevice(thread.id, thread.token, { endpoint, titles: feedbackTitles() });
+        myFeedback = myFeedback.map((th) => (th.id === thread.id ? { ...th, endpoint } : th));
+      }
+    } catch (err) {
+      if (!(err instanceof ServerError)) throw err;
+      if (err.status === 404) myFeedback = updateThread(myFeedback, thread.id, null);
+      else if (err.status === 0) break; // offline
+    }
+  }
+  if ($('#feedback-dialog').open) myFeedback = markSeen(myFeedback);
+  saveMyFeedback();
+}
+
+const shortDate = (iso) => new Date(iso).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' });
+
+function messageItem(m, mine) {
+  const li = document.createElement('li');
+  li.className = `msg ${m.fromAdmin === mine ? 'mine' : 'theirs'}`;
+  const who = m.fromAdmin ? (mine ? t('fromYou') : t('fromAdmin')) : mine ? t('fromSender') : t('fromYou');
+  li.innerHTML = `<span class="who">${esc(who)} · ${esc(shortDate(m.createdAt))}</span><p>${esc(m.text)}</p>`;
+  return li;
+}
+
+// A reply box: a textarea and a send button that runs `send(text)`. Drafts survive
+// re-renders until `send` clears them with `delete drafts[key]` once sent.
+const drafts = {};
+function replyBox(key, send) {
+  const box = document.createElement('div');
+  box.className = 'reply-box';
+  box.innerHTML = `
+    <textarea rows="2" maxlength="2000" placeholder="${esc(t('replyPlaceholder'))}" aria-label="${esc(t('replyPlaceholder'))}"></textarea>
+    <button type="button" class="reply-send">${esc(t('sendFeedback'))}</button>`;
+  const area = box.querySelector('textarea');
+  area.value = drafts[key] || '';
+  area.oninput = () => (drafts[key] = area.value);
+  box.querySelector('button').onclick = (e) => {
+    const text = area.value.trim();
+    if (!text) return area.focus();
+    busy(e.currentTarget, () => send(text));
+  };
+  return box;
+}
+
+// The sender's threads, under the feedback form, and the unread count on the ⋮ menu.
+function renderMyFeedback() {
+  const count = unreadTotal(myFeedback);
+  $('#menu-feedback').textContent = t('feedbackItem') + (count ? ` (${count})` : '');
+  $('#menu-btn').classList.toggle('has-unread', count > 0);
+  $('#my-feedback').hidden = myFeedback.length === 0;
+  $('#my-feedback-list').replaceChildren(
+    ...myFeedback.map((th) => {
+      const li = document.createElement('li');
+      li.className = 'thread';
+      li.innerHTML = `
+        <span class="who">${esc(shortDate(th.createdAt))}${th.reaction ? ` · ${esc(t('reaction', { emoji: th.reaction }))}` : ''}</span>
+        <p class="thread-text">${esc(th.text)}</p>
+        <ul class="messages"></ul>`;
+      li.querySelector('.messages').replaceChildren(...th.messages.map((m) => messageItem(m, false)));
+      if (th.closed) {
+        li.insertAdjacentHTML('beforeend', `<p class="muted">${esc(t('threadClosed'))}</p>`);
+      } else if (th.messages.some((m) => m.fromAdmin)) {
+        li.append(
+          replyBox(`mine:${th.id}`, (text) =>
+            friendsCall(async () => {
+              await answerThread(th.id, th.token, text);
+              delete drafts[`mine:${th.id}`];
+              toast(t('answerSent'));
+              await refreshMyFeedback(true);
+            }, { 0: 'feedbackOffline', 429: 'feedbackTooMuch', 404: 'threadClosed' }),
+          ),
+        );
+      }
+      return li;
+    }),
+  );
+}
+
+// The admin inbox: a compact table with status, filters and search, so lots of feedback
+// stays manageable. Tapping a row opens it to reply, react or clear it.
 let inbox = [];
+let openFeedback = null;
+const inboxFilter = { status: 'all', platform: 'all', lang: 'all', query: '', oldestFirst: false };
+const STATUSES = ['all', 'new', 'waiting', 'answered'];
+const statusLabel = { all: 'statusAll', new: 'statusNew', waiting: 'statusWaiting', answered: 'statusAnswered' };
+
 $('#menu-inbox').onclick = () => {
   $('#menu').close();
   openInbox();
 };
 
-function openInbox() {
-  inbox = [];
+$('#inbox-search').oninput = (e) => {
+  inboxFilter.query = e.target.value;
   renderInbox();
-  if (!$('#inbox-dialog').open) $('#inbox-dialog').showModal();
-  friendsCall(async () => {
+};
+$('#inbox-platform').onchange = (e) => {
+  inboxFilter.platform = e.target.value;
+  renderInbox();
+};
+$('#inbox-lang').onchange = (e) => {
+  inboxFilter.lang = e.target.value;
+  renderInbox();
+};
+$('#inbox-sort').onclick = () => {
+  inboxFilter.oldestFirst = !inboxFilter.oldestFirst;
+  renderInbox();
+};
+
+async function loadInbox() {
+  await friendsCall(async () => {
     ({ feedback: inbox } = await fetchFeedback(friends.code));
     renderInbox();
   });
+}
+
+function openInbox() {
+  renderInbox();
+  if (!$('#inbox-dialog').open) $('#inbox-dialog').showModal();
+  loadInbox();
   // The Android app checks for new feedback itself (FeedbackJob), so the hint is web-only.
   pushEndpoint()
     .catch(() => null)
@@ -992,42 +1145,135 @@ $('#whats-new-more').onclick = () => {
   openHelp(true);
 };
 
-// Tapping a new-feedback notification opens the app at …#inbox.
+// Tapping a new-feedback notification opens the app at …#inbox, and a reply to your own
+// feedback at …#feedback.
 function openInboxLink() {
-  if (location.hash !== '#inbox') return;
+  if (location.hash !== '#inbox' && location.hash !== '#feedback') return;
+  const hash = location.hash;
   history.replaceState(null, '', location.pathname + location.search);
-  if (friends.me && friends.admin) openInbox();
+  if (hash === '#feedback') openMyFeedback();
+  else if (friends.me && friends.admin) openInbox();
 }
 openInboxLink();
 window.addEventListener('hashchange', openInboxLink);
 
 function renderInbox() {
-  $('#inbox-empty').hidden = inbox.length > 0;
-  $('#inbox-list').replaceChildren(
-    ...inbox.map((f) => {
-      const li = document.createElement('li');
-      const when = new Date(f.createdAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' });
-      li.innerHTML = `
-        <div class="inbox-meta"><span>${esc(when)} · ${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</span>
-          <button type="button" class="delete">${esc(t('inboxDone'))}</button></div>
-        <p>${esc(f.text)}</p>`;
-      li.querySelector('.delete').onclick = (e) => {
-        const btn = e.currentTarget;
-        if (!btn.classList.contains('armed')) {
-          btn.classList.add('armed');
-          btn.textContent = t('inboxDoneConfirm');
-          setTimeout(() => btn.isConnected && renderInbox(), 3000);
-          return;
-        }
-        friendsCall(async () => {
-          await deleteFeedback(friends.code, f.id);
-          inbox = inbox.filter((x) => x.id !== f.id);
-          renderInbox();
-        });
+  const counts = statusCounts(inbox);
+  $('#inbox-status').replaceChildren(
+    ...STATUSES.map((st) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.setAttribute('aria-pressed', String(inboxFilter.status === st));
+      b.textContent = `${t(statusLabel[st])} ${counts[st]}`;
+      b.onclick = () => {
+        inboxFilter.status = st;
+        renderInbox();
       };
-      return li;
+      return b;
     }),
   );
+  const option = (value, label, selected) => {
+    const o = new Option(label, value);
+    o.selected = value === selected;
+    return o;
+  };
+  $('#inbox-platform').replaceChildren(
+    option('all', t('allPlatforms'), inboxFilter.platform),
+    option('android', 'Android', inboxFilter.platform),
+    option('web', 'Web', inboxFilter.platform),
+  );
+  const langs = [...new Set(inbox.map((f) => f.lang))].sort();
+  $('#inbox-lang').replaceChildren(
+    option('all', t('allLanguages'), inboxFilter.lang),
+    ...langs.map((l) => option(l, l.toUpperCase(), inboxFilter.lang)),
+  );
+  $('#inbox-sort').textContent = t(inboxFilter.oldestFirst ? 'oldestFirst' : 'newestFirst');
+
+  const shown = filterFeedback(inbox, inboxFilter);
+  $('#inbox-empty').hidden = shown.length > 0;
+  $('#inbox-list').replaceChildren(...shown.flatMap((f) => inboxRows(f)));
+}
+
+function inboxRows(f) {
+  const row = document.createElement('tr');
+  const status = feedbackStatus(f);
+  const open = openFeedback === f.id;
+  row.className = `fb-row${open ? ' open' : ''}`;
+  row.tabIndex = 0;
+  row.setAttribute('aria-expanded', String(open));
+  const day = new Date(f.createdAt).toLocaleDateString(lang, { day: 'numeric', month: 'numeric' });
+  row.innerHTML = `
+    <td class="fb-status"><span class="dot ${status}" title="${esc(t(statusLabel[status]))}"></span></td>
+    <td class="fb-text">${f.reaction ? `${esc(f.reaction)} ` : ''}${esc(f.text)}</td>
+    <td class="fb-meta">${esc(day)}<br>${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</td>`;
+  const toggle = () => {
+    openFeedback = open ? null : f.id;
+    renderInbox();
+  };
+  row.onclick = toggle;
+  row.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggle());
+  if (!open) return [row];
+
+  const detail = document.createElement('tr');
+  detail.className = 'fb-detail';
+  detail.innerHTML = `
+    <td colspan="3">
+      <div class="inbox-meta"><span>${esc(shortDate(f.createdAt))} · ${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</span>
+        <button type="button" class="delete">${esc(t('inboxDone'))}</button></div>
+      <p class="thread-text">${esc(f.text)}</p>
+      <ul class="messages"></ul>
+    </td>`;
+  const cell = detail.querySelector('td');
+  cell.querySelector('.messages').replaceChildren(...f.messages.map((m) => messageItem(m, true)));
+  if (f.replyable) {
+    const reactions = document.createElement('div');
+    reactions.className = 'reactions';
+    for (const emoji of REACTIONS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = emoji;
+      b.setAttribute('aria-label', t('reactionLabel', { emoji }));
+      b.setAttribute('aria-pressed', String(f.reaction === emoji));
+      // Tapping the current reaction again takes it back.
+      b.onclick = (e) =>
+        busy(e.currentTarget, () =>
+          friendsCall(async () => {
+            await reactToFeedback(friends.code, f.id, f.reaction === emoji ? '' : emoji);
+            await loadInbox();
+          }),
+        );
+      reactions.append(b);
+    }
+    cell.append(
+      reactions,
+      replyBox(`inbox:${f.id}`, (text) =>
+        friendsCall(async () => {
+          await replyToFeedback(friends.code, f.id, text);
+          delete drafts[`inbox:${f.id}`];
+          await loadInbox();
+        }),
+      ),
+    );
+  } else {
+    cell.insertAdjacentHTML('beforeend', `<p class="muted">${esc(t('notReplyable'))}</p>`);
+  }
+  cell.querySelector('.delete').onclick = (e) => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = t('inboxDoneConfirm');
+      setTimeout(() => btn.isConnected && renderInbox(), 3000);
+      return;
+    }
+    friendsCall(async () => {
+      await deleteFeedback(friends.code, f.id);
+      inbox = inbox.filter((x) => x.id !== f.id);
+      openFeedback = null;
+      renderInbox();
+    });
+  };
+  return [row, detail];
 }
 
 // Disables a button while its request runs, so a double tap doesn't send twice.
@@ -1091,13 +1337,16 @@ function checkReminders() {
 window.addEventListener('focus', () => {
   render();
   if (Date.now() - (refreshFriends.last || 0) > 60_000) refreshFriends();
+  refreshMyFeedback();
 });
 setInterval(checkReminders, 30_000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 renderFriends();
+renderMyFeedback();
 refreshFriends();
+refreshMyFeedback(true);
 sendStatsSoon();
 checkReminders();
 enablePush(state).then(syncAdminDevice);

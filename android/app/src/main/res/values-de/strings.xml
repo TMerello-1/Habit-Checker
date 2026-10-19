@@ -12,6 +12,8 @@
     <string name="reminder_body">Bleib an deiner Serie dran!</string>
     <string name="feedback_channel">Neues Feedback</string>
     <string name="feedback_title">💬 Neues Feedback</string>
+    <string name="feedback_reply_title">💬 Antwort auf dein Feedback</string>
+    <string name="feedback_reaction_title">%1$s zu deinem Feedback</string>
     <string name="feedback_title_many">💬 %1$d neue Feedback-Nachrichten</string>
     <string name="update_title">Update verfügbar</string>
     <string name="update_message">Eine neue Version von Habit Checker ist da. Deine Gewohnheiten und Serien bleiben erhalten.</string>

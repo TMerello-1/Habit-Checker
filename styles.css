@@ -308,11 +308,64 @@ button[type=submit], #copy-data, #import-btn, #feedback-send {
 .sheet-body { display: grid; gap: 10px; }
 .sheet-body p { margin: 0; }
 .sheet-body textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
-.inbox { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 65vh; overflow-y: auto; }
-.inbox li { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+/* Feedback inbox: a compact table with filters */
+.inbox { max-height: 60vh; overflow-y: auto; }
+.inbox-tools { display: grid; gap: 8px; margin-bottom: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.chip[aria-pressed=true] { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
+.inbox-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.inbox-filters input, .inbox-filters select {
+  font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); min-width: 0;
+}
+.inbox-filters input { flex: 1 1 140px; }
+.inbox-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.fb-row { cursor: pointer; border-top: 1px solid var(--border); }
+.fb-row:hover, .fb-row:focus-visible, .fb-row.open { background: var(--bg); outline: none; }
+.fb-row td { padding: 8px 4px; vertical-align: top; }
+.fb-status { width: 18px; }
+.fb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-meta { width: 92px; text-align: right; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.dot.new { background: #2563eb; }
+.dot.waiting { background: #d97706; }
+.dot.answered { background: #16a34a; }
+.fb-detail td { background: var(--bg); padding: 4px 8px 12px; }
 .inbox-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 13px; }
 .inbox .delete { font-size: 13px; }
-.inbox p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Feedback threads: the sender's view and the inbox detail */
+.threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.thread { background: var(--bg); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+.thread-text { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.messages { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.msg { padding: 6px 10px; border-radius: 10px; max-width: 90%; background: var(--card); border: 1px solid var(--border); }
+.msg.mine { justify-self: end; background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
+.msg.mine .who { color: rgb(255 255 255 / 0.85); }
+.msg p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.who { color: var(--muted); font-size: 12px; }
+.reactions { display: flex; gap: 4px; margin-top: 8px; }
+.reactions button {
+  font: inherit; font-size: 18px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card);
+}
+.reactions button[aria-pressed=true] { border-color: var(--accent-fill); box-shadow: 0 0 0 1px var(--accent-fill); }
+.reply-box { display: flex; gap: 6px; align-items: flex-end; margin-top: 8px; }
+.reply-box textarea {
+  flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); resize: vertical;
+}
+.reply-send { font: inherit; background: var(--accent-fill); color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.reply-send:disabled { opacity: 0.6; }
+.menu-btn.has-unread { position: relative; }
+.menu-btn.has-unread::after {
+  content: ''; position: absolute; top: 5px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: #f97316; box-shadow: 0 0 0 2px var(--accent-fill);
+}
 .help { display: grid; gap: 10px; max-height: 70vh; overflow-y: auto; }
 .help h2 { margin: 8px 0 0; font-size: 17px; }
 .help h3 { margin: 0; font-size: 15px; }

@@ -50,3 +50,32 @@ CREATE TABLE IF NOT EXISTS admin_devices (
   title TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- Replies to feedback, without knowing who sent it. Sending feedback hands the sender's
+-- device a random token (only its hash is kept here), which reads and answers the thread.
+-- endpoint and the titles say where and how to notify the sender (Web Push, optional).
+CREATE TABLE IF NOT EXISTS feedback_threads (
+  feedback_id TEXT PRIMARY KEY,
+  token_hash TEXT NOT NULL,
+  reaction TEXT NOT NULL DEFAULT '',
+  endpoint TEXT NOT NULL DEFAULT '',
+  reply_title TEXT NOT NULL DEFAULT '',
+  reaction_title TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS feedback_messages (
+  id TEXT PRIMARY KEY,
+  feedback_id TEXT NOT NULL,
+  from_admin INTEGER NOT NULL,      -- 1 = an admin's reply, 0 = the sender answering
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feedback_messages_by_thread ON feedback_messages (feedback_id, created_at);
+
+-- When admins were last pushed about new feedback, so a burst of feedback sends one
+-- notification (with a count) instead of one each. A single row, id 1.
+CREATE TABLE IF NOT EXISTS admin_push (
+  id INTEGER PRIMARY KEY,
+  last_at TEXT NOT NULL
+);

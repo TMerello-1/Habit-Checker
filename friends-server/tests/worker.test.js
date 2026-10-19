@@ -9,15 +9,19 @@ beforeEach(() => {
   env = { DB: fakeD1() };
 });
 
-async function call(method, path, { body, code } = {}) {
+async function call(method, path, { body, code, token } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (code) headers.Authorization = `Bearer ${code}`;
+  if (token) headers['X-Feedback-Token'] = token;
   const res = await worker.fetch(
     new Request(`https://friends.test${path}`, { method, headers, body: body && JSON.stringify(body) }),
     env,
   );
   return { status: res.status, body: await res.json() };
 }
+
+// Ends the quiet time after an admin push, as if 5 minutes had passed.
+const quietOver = () => env.DB.raw.exec('DELETE FROM admin_push');
 
 const join = async (adj = 0, animal = 0) => (await call('POST', '/profiles', { body: { adj, animal } })).body;
 
@@ -206,11 +210,13 @@ test('new feedback is pushed to registered admin devices, in each admin\'s langu
   assert.equal(pushed[0].message.url, '#inbox');
 
   // The push server said "old" is gone, so it isn't asked for again.
+  quietOver();
   await call('POST', '/feedback', { body: { text: 'again' } });
   assert.deepEqual(pushed[1].endpoints, ['https://fcm.googleapis.com/fcm/send/tom']);
 
   // Taken off ADMINS: no more pushes, even with the device still listed.
   env.ADMINS = '';
+  quietOver();
   await call('POST', '/feedback', { body: { text: 'third' } });
   assert.equal(pushed.length, 2);
 });
@@ -243,4 +249,110 @@ test('invite links send browsers on to the web app with the code', async () => {
   assert.equal(res.headers.get('Location'), 'https://app.test/#invite=ABCD1234');
   res = await worker.fetch(new Request('https://friends.test/invite/nope'), env);
   assert.equal(res.headers.get('Location'), 'https://app.test/');
+});
+
+// A fake push server binding that records what it was asked to send.
+function fakePush() {
+  const pushed = [];
+  env.PUSH = {
+    fetch: async (url, init) => {
+      pushed.push(JSON.parse(init.body));
+      return Response.json({ sent: 1, unknown: [] });
+    },
+  };
+  return pushed;
+}
+
+test('an admin can reply and react; the anonymous sender reads it with their token and answers back', async () => {
+  const tom = await join(4, 7);
+  env.ADMINS = '4.7.0';
+  await call('PUT', '/admin/device', { code: tom.code, body: { endpoint: 'https://fcm.googleapis.com/fcm/send/tom', title: '💬 New feedback' } });
+  const pushed = fakePush();
+
+  const sent = await call('POST', '/feedback', {
+    body: {
+      text: 'Dark mode please',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/sender',
+      titles: { reply: '💬 Reply to your feedback', reaction: '{emoji} on your feedback' },
+    },
+  });
+  assert.equal(sent.status, 201);
+  const { id, token } = sent.body;
+  assert.equal(token.length, 20);
+  pushed.length = 0;
+
+  assert.equal((await call('POST', `/feedback/${id}/messages`, { code: tom.code, body: { text: 'On it!' } })).status, 201);
+  assert.equal((await call('PUT', `/feedback/${id}/reaction`, { code: tom.code, body: { emoji: '👍' } })).status, 200);
+  assert.deepEqual(pushed.map((p) => [p.endpoints[0], p.message.title, p.message.body, p.message.url]), [
+    ['https://fcm.googleapis.com/fcm/send/sender', '💬 Reply to your feedback', 'On it!', '#feedback'],
+    ['https://fcm.googleapis.com/fcm/send/sender', '👍 on your feedback', 'Dark mode please', '#feedback'],
+  ]);
+
+  const thread = await call('GET', `/threads/${id}`, { token });
+  assert.equal(thread.body.reaction, '👍');
+  assert.deepEqual(thread.body.messages.map((m) => [m.fromAdmin, m.text]), [[true, 'On it!']]);
+
+  pushed.length = 0;
+  quietOver();
+  assert.equal((await call('POST', `/threads/${id}/messages`, { token, body: { text: 'Thanks!' } })).status, 201);
+  assert.equal(pushed[0].endpoints[0], 'https://fcm.googleapis.com/fcm/send/tom');
+  assert.equal(pushed[0].message.body, 'Thanks!');
+
+  const [item] = (await call('GET', '/feedback', { code: tom.code })).body.feedback;
+  assert.equal(item.replyable, true);
+  assert.equal(item.reaction, '👍');
+  assert.deepEqual(item.messages.map((m) => [m.fromAdmin, m.text]), [[true, 'On it!'], [false, 'Thanks!']]);
+  assert.ok(!JSON.stringify(item).includes('token'));
+});
+
+test('a thread only opens with its own token, and nobody but admins can reply as admin', async () => {
+  const tom = await join(4, 7);
+  const ana = await join(2, 9);
+  env.ADMINS = '4.7.0';
+  const a = (await call('POST', '/feedback', { body: { text: 'one' } })).body;
+  const b = (await call('POST', '/feedback', { body: { text: 'two' } })).body;
+  assert.equal((await call('GET', `/threads/${a.id}`, { token: b.token })).status, 404);
+  assert.equal((await call('GET', `/threads/${a.id}`)).status, 404);
+  assert.equal((await call('POST', `/threads/${a.id}/messages`, { token: b.token, body: { text: 'x' } })).status, 404);
+  assert.equal((await call('POST', `/feedback/${a.id}/messages`, { code: ana.code, body: { text: 'x' } })).status, 403);
+  assert.equal((await call('PUT', `/feedback/${a.id}/reaction`, { code: ana.code, body: { emoji: '👍' } })).status, 403);
+  assert.equal((await call('POST', `/feedback/${a.id}/messages`, { code: tom.code, body: { text: '' } })).status, 400);
+});
+
+test('deleting feedback ends its thread, and a sender can answer 10 times an hour', async () => {
+  const tom = await join(4, 7);
+  env.ADMINS = '4.7.0';
+  const { id, token } = (await call('POST', '/feedback', { body: { text: 'hi' } })).body;
+  for (let i = 0; i < 10; i++) assert.equal((await call('POST', `/threads/${id}/messages`, { token, body: { text: `m${i}` } })).status, 201);
+  assert.equal((await call('POST', `/threads/${id}/messages`, { token, body: { text: 'one more' } })).status, 429);
+  await call('DELETE', `/feedback/${id}`, { code: tom.code });
+  assert.equal((await call('GET', `/threads/${id}`, { token })).status, 404);
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM feedback_messages').get().n, 0);
+});
+
+test('a sender without push gets no notification; turning push on later registers it', async () => {
+  const tom = await join(4, 7);
+  env.ADMINS = '4.7.0';
+  const pushed = fakePush();
+  const { id, token } = (await call('POST', '/feedback', { body: { text: 'hi' } })).body;
+  await call('POST', `/feedback/${id}/messages`, { code: tom.code, body: { text: 'hello' } });
+  assert.equal(pushed.length, 0);
+  await call('PUT', `/threads/${id}/device`, { token, body: { endpoint: 'https://fcm.googleapis.com/fcm/send/s', titles: { reply: 'R', reaction: '{emoji}' } } });
+  await call('POST', `/feedback/${id}/messages`, { code: tom.code, body: { text: 'again' } });
+  assert.equal(pushed[0].message.title, 'R');
+});
+
+test('a burst of feedback pushes admins once, then once more with a count after 5 minutes', async () => {
+  const tom = await join(4, 7);
+  env.ADMINS = '4.7.0';
+  await call('PUT', '/admin/device', { code: tom.code, body: { endpoint: 'https://fcm.googleapis.com/fcm/send/tom' } });
+  const pushed = fakePush();
+  for (const text of ['a', 'b', 'c']) await call('POST', '/feedback', { body: { text } });
+  assert.deepEqual(pushed.map((p) => p.message.body), ['a']);
+
+  // 5 minutes on: b, c and d are new since the last push.
+  env.DB.raw.exec("UPDATE admin_push SET last_at = '2000-01-01T00:00:00.000Z'");
+  env.DB.raw.exec("UPDATE feedback SET created_at = '1999-01-01T00:00:00.000Z' WHERE text = 'a'");
+  await call('POST', '/feedback', { body: { text: 'd' } });
+  assert.deepEqual(pushed.map((p) => p.message.body), ['a', 'd (+2)']);
 });
