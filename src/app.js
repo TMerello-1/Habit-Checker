@@ -613,6 +613,7 @@ function renderFriends() {
   $('#menu-inbox').hidden = !(friends.me && friends.admin);
   const me = friends.me;
   $('#menu-profile').hidden = !me;
+  $('#menu-signin').hidden = Boolean(me) || !friendsEnabled();
   if (!me && $('#profile-dialog').open) $('#profile-dialog').close();
   $('#friends-join').hidden = Boolean(me);
   $('#friends-main').hidden = !me;
@@ -776,6 +777,16 @@ $('#join').onclick = (e) =>
     }),
   );
 
+// Signing in with a recovery code: from the ⋮ menu or the Friends section. On iPhone a
+// home screen app has storage apart from Safari, so a profile made in Safari is missing there.
+$('#ios-storage-note').hidden = installPlatform(navigator.userAgent, navigator.maxTouchPoints) !== 'ios';
+$('#menu-signin').onclick = () => {
+  $('#menu').close();
+  $('#friends-section').open = true;
+  $('#restore').hidden = false;
+  $('#friends-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#restore-code').focus({ preventScroll: true });
+};
 $('#show-restore').onclick = () => {
   $('#restore').hidden = !$('#restore').hidden;
   if (!$('#restore').hidden) $('#restore-code').focus();

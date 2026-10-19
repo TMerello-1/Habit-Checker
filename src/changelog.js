@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 16, date: '2026-10-19',
+    en: 'Signing in with your recovery code is easier to find: it\'s in the ⋮ menu while you have no profile. On iPhone, the home screen app explains that it keeps its own data, apart from Safari.',
+    de: 'Die Anmeldung mit dem Wiederherstellungscode ist leichter zu finden: Ohne Profil steht sie im ⋮-Menü. Auf dem iPhone erklärt die App auf dem Home-Bildschirm, dass sie eigene Daten hat, getrennt von Safari.',
+  },
+  {
     v: 15, date: '2026-10-19',
     en: 'Help explains how to get reminders on your smartwatch or fitness band.',
     de: 'Die Hilfe erklärt, wie Erinnerungen auf deine Smartwatch oder dein Fitnessband kommen.',
