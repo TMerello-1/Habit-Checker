@@ -3,13 +3,16 @@
 // Profiles are anonymous: a generated name and a secret recovery code, nothing else. Each
 // device signs in by sending that code as a bearer token; the server keeps only its hash.
 // Friends are linked with a single-use invite code, and both directions are stored. Friends
-// see each other's name, level and best current streak. Habits never reach the server.
+// see each other's name, level and best current streak. Habits reach the server only as a
+// backup the app encrypts with a key derived from the recovery code, which this server can't read.
 //
 // Routes (all JSON; everything except POST /profiles needs "Authorization: Bearer <code>"):
 //   POST   /profiles               { adj, animal }  → { code, me }   new profile
 //   GET    /me                                      → { me, friends }
 //   PUT    /me/stats               { level, streak }
 //   DELETE /me                                         deletes the profile and its links
+//   PUT    /me/backup              { data }         → { updatedAt }  the encrypted habit backup
+//   GET    /me/backup                               → { data, updatedAt }   404 when there is none
 //   POST   /invites                                 → { code, expiresAt }
 //   GET    /invites/<code>                          → { profile }  who sent it, before accepting
 //   POST   /invites/<code>/accept                   → { friend }
@@ -43,6 +46,7 @@ const MAX_FEEDBACK_LENGTH = 2000;
 const FEEDBACK_PER_HOUR = 5;
 const ANSWERS_PER_HOUR = 10; // a sender's messages in one thread
 const ADMIN_PUSH_GAP_MS = 5 * 60_000;
+const MAX_BACKUP_LENGTH = 2_000_000; // base64 characters, years of history for dozens of habits
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -135,9 +139,31 @@ async function deleteProfile(env, me) {
     env.DB.prepare('DELETE FROM friends WHERE profile_id = ? OR friend_id = ?').bind(me.id, me.id),
     env.DB.prepare('DELETE FROM invites WHERE profile_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM admin_devices WHERE profile_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM backups WHERE profile_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM profiles WHERE id = ?').bind(me.id),
   ]);
   return json({ ok: true });
+}
+
+async function saveBackup(request, env, me) {
+  const body = await request.json().catch(() => null);
+  const data = body?.data;
+  if (typeof data !== 'string' || !data || data.length > MAX_BACKUP_LENGTH || !/^[A-Za-z0-9+/]+=*$/.test(data)) {
+    return fail(400, 'invalid backup');
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO backups (profile_id, data, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT (profile_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+  )
+    .bind(me.id, data, now)
+    .run();
+  return json({ updatedAt: now });
+}
+
+async function readBackup(env, me) {
+  const row = await env.DB.prepare('SELECT data, updated_at FROM backups WHERE profile_id = ?').bind(me.id).first();
+  return row ? json({ data: row.data, updatedAt: row.updated_at }) : fail(404, 'no backup');
 }
 
 // Hands out the profile's open invite, or a fresh one once that is used or expired.
@@ -461,6 +487,8 @@ async function route(request, env, ctx) {
   }
   if (method === 'PUT' && pathname === '/me/stats') return updateStats(request, env, me);
   if (method === 'DELETE' && pathname === '/me') return deleteProfile(env, me);
+  if (method === 'PUT' && pathname === '/me/backup') return saveBackup(request, env, me);
+  if (method === 'GET' && pathname === '/me/backup') return readBackup(env, me);
   if (method === 'POST' && pathname === '/invites') return createInvite(env, me);
 
   let m;

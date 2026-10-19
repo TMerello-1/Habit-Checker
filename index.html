@@ -190,9 +190,13 @@
     <div class="sheet-body">
       <div class="profile"><span class="avatar" id="profile-avatar" aria-hidden="true"></span><b id="profile-name"></b></div>
       <div class="code-box">
-        <p class="muted" data-i18n="recoveryHelp">Save this code somewhere safe. It's the only way to get your profile and friends back on a new phone.</p>
+        <p class="muted" data-i18n="recoveryHelp">Save this code somewhere safe. It's the only way to get your profile, friends and habits back on a new phone.</p>
         <code id="recovery-code"></code>
         <button type="button" id="copy-recovery" class="secondary" data-i18n="copy">Copy</button>
+      </div>
+      <div class="code-box">
+        <p class="muted" id="backup-status"></p>
+        <button type="button" id="backup-now" class="secondary" data-i18n="backupNow">☁️ Back up now</button>
       </div>
       <div class="danger-zone">
         <button type="button" id="leave" class="link danger" data-i18n="deleteProfile">Delete my profile</button>
@@ -281,6 +285,18 @@
       <div class="row">
         <button value="cancel" class="cancel" data-i18n="notYet">Not yet</button>
         <button value="ok" type="submit" data-i18n="yesDone" autofocus>Yes, I did it</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="backup-dialog" class="confirm" aria-labelledby="backup-title">
+    <form method="dialog">
+      <p class="confirm-emoji" aria-hidden="true">☁️</p>
+      <h2 id="backup-title" data-i18n="backupTitle">Use your backup?</h2>
+      <p id="backup-text"></p>
+      <div class="row">
+        <button value="keep" class="cancel" data-i18n="backupKeep">Keep this phone's</button>
+        <button value="use" type="submit" data-i18n="backupUse">Use backup</button>
       </div>
     </form>
   </dialog>

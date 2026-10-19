@@ -79,3 +79,11 @@ CREATE TABLE IF NOT EXISTS admin_push (
   id INTEGER PRIMARY KEY,
   last_at TEXT NOT NULL
 );
+
+-- Each profile's habit backup, encrypted by the app with a key derived from the recovery
+-- code (see src/backup.js). The server can't read it: it stores neither the code nor the key.
+CREATE TABLE IF NOT EXISTS backups (
+  profile_id TEXT PRIMARY KEY,
+  data TEXT NOT NULL,               -- base64 of the IV and the AES-GCM ciphertext
+  updated_at TEXT NOT NULL
+);
