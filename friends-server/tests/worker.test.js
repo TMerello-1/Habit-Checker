@@ -356,3 +356,25 @@ test('a burst of feedback pushes admins once, then once more with a count after 
   await call('POST', '/feedback', { body: { text: 'd' } });
   assert.deepEqual(pushed.map((p) => p.message.body), ['a', 'd (+2)']);
 });
+
+test('a profile keeps one backup, which only its own code reads, and deleting the profile drops it', async () => {
+  const a = await join(1, 1);
+  const b = await join(2, 2);
+  assert.equal((await call('GET', '/me/backup', { code: a.code })).status, 404);
+  assert.equal((await call('PUT', '/me/backup', { code: a.code, body: { data: 'AAAA' } })).status, 200);
+  assert.equal((await call('PUT', '/me/backup', { code: a.code, body: { data: 'BBBB==' } })).status, 200);
+  const got = await call('GET', '/me/backup', { code: a.code });
+  assert.equal(got.body.data, 'BBBB==');
+  assert.ok(got.body.updatedAt);
+  assert.equal((await call('GET', '/me/backup', { code: b.code })).status, 404);
+  assert.equal((await call('GET', '/me/backup')).status, 401);
+  await call('DELETE', '/me', { code: a.code });
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM backups').get().n, 0);
+});
+
+test('a backup must be base64 text of a sensible size', async () => {
+  const { code } = await join();
+  for (const data of [undefined, '', 42, 'not base64!', 'A'.repeat(2_000_001)]) {
+    assert.equal((await call('PUT', '/me/backup', { code, body: { data } })).status, 400);
+  }
+});

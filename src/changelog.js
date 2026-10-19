@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 18, date: '2026-10-19', notable: true,
+    en: 'Your recovery code now brings back your habits too: with a profile, your habits, their history and your friends\' nicknames are backed up, encrypted so only your code can read them.',
+    de: 'Dein Wiederherstellungscode holt jetzt auch deine Gewohnheiten zurück: Mit Profil werden deine Gewohnheiten, ihr Verlauf und die Spitznamen deiner Freunde gesichert, verschlüsselt, sodass nur dein Code sie lesen kann.',
+  },
+  {
     v: 17, date: '2026-10-19', notable: true,
     en: 'Feedback gets answers: replies and reactions to what you sent show up under ⋮ → Send feedback, with a notification, and you can answer back. It all stays anonymous.',
     de: 'Feedback bekommt Antworten: Antworten und Reaktionen auf dein Feedback erscheinen unter ⋮ → Feedback senden, mit Benachrichtigung, und du kannst zurückschreiben. Alles bleibt anonym.',
