@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 15, date: '2026-10-19',
+    en: 'Help explains how to get reminders on your smartwatch or fitness band.',
+    de: 'Die Hilfe erklärt, wie Erinnerungen auf deine Smartwatch oder dein Fitnessband kommen.',
+  },
+  {
     v: 14, date: '2026-10-18',
     en: 'Invite links now open the Android app directly (after updating it). Without the app they open the web app as before.',
     de: 'Einladungslinks öffnen jetzt direkt die Android-App (nach dem Update). Ohne App öffnen sie wie bisher die Web-App.',
