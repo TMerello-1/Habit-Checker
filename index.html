@@ -222,9 +222,13 @@
       <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
     </div>
     <div class="sheet-body">
-      <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? It's sent anonymously.</p>
+      <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? It's sent anonymously, and replies show up here.</p>
       <textarea id="feedback-text" rows="5" maxlength="2000" placeholder="Your feedback" aria-label="Your feedback" data-i18n-placeholder="feedbackPlaceholder" data-i18n-aria-label="feedbackPlaceholder"></textarea>
       <button type="button" id="feedback-send" data-i18n="sendFeedback">Send</button>
+      <section id="my-feedback" hidden>
+        <h3 data-i18n="myFeedback">Your feedback</h3>
+        <ul id="my-feedback-list" class="threads"></ul>
+      </section>
     </div>
   </dialog>
 
@@ -246,8 +250,19 @@
       <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
     </div>
     <p id="inbox-push-hint" class="muted" data-i18n="inboxPushHint" hidden>Turn on reminders on this device to get a notification when new feedback arrives.</p>
+    <div class="inbox-tools">
+      <div id="inbox-status" class="chips" role="group" aria-label="Status"></div>
+      <div class="inbox-filters">
+        <input type="search" id="inbox-search" placeholder="Search" aria-label="Search" data-i18n-placeholder="inboxSearch" data-i18n-aria-label="inboxSearch">
+        <select id="inbox-platform" aria-label="Platform" data-i18n-aria-label="platform"></select>
+        <select id="inbox-lang" aria-label="Language" data-i18n-aria-label="language"></select>
+        <button type="button" id="inbox-sort" class="chip"></button>
+      </div>
+    </div>
     <p id="inbox-empty" class="muted" data-i18n="inboxEmpty" hidden>No feedback right now.</p>
-    <ul id="inbox-list" class="inbox"></ul>
+    <div class="inbox">
+      <table class="inbox-table"><tbody id="inbox-list"></tbody></table>
+    </div>
   </dialog>
 
   <dialog id="confirm-done" class="confirm" aria-labelledby="confirm-title">

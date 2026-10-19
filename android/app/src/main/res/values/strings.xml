@@ -13,6 +13,8 @@
     <string name="reminder_body">Keep your streak going!</string>
     <string name="feedback_channel">New feedback</string>
     <string name="feedback_title">💬 New feedback</string>
+    <string name="feedback_reply_title">💬 Reply to your feedback</string>
+    <string name="feedback_reaction_title">%1$s on your feedback</string>
     <string name="feedback_title_many">💬 %1$d new feedback messages</string>
     <string name="update_title">Update available</string>
     <string name="update_message">A new version of Habit Checker is ready. Your habits and streaks stay as they are.</string>

@@ -36,9 +36,10 @@ export class ServerError extends Error {
   }
 }
 
-async function api(method, path, { code, body } = {}) {
+async function api(method, path, { code, token, body } = {}) {
   const headers = {};
   if (code) headers.Authorization = `Bearer ${code}`;
+  if (token) headers['X-Feedback-Token'] = token;
   if (body) headers['Content-Type'] = 'application/json';
   let res;
   try {
@@ -64,3 +65,9 @@ export const sendFeedback = (feedback) => api('POST', '/feedback', { body: feedb
 export const fetchFeedback = (code) => api('GET', '/feedback', { code });
 export const deleteFeedback = (code, id) => api('DELETE', `/feedback/${encodeURIComponent(id)}`, { code });
 export const registerAdminDevice = (code, device) => api('PUT', '/admin/device', { code, body: device });
+export const replyToFeedback = (code, id, text) => api('POST', `/feedback/${encodeURIComponent(id)}/messages`, { code, body: { text } });
+export const reactToFeedback = (code, id, emoji) => api('PUT', `/feedback/${encodeURIComponent(id)}/reaction`, { code, body: { emoji } });
+// The sender's side of a thread, opened with the token POST /feedback returned.
+export const fetchThread = (id, token) => api('GET', `/threads/${encodeURIComponent(id)}`, { token });
+export const answerThread = (id, token, text) => api('POST', `/threads/${encodeURIComponent(id)}/messages`, { token, body: { text } });
+export const threadDevice = (id, token, device) => api('PUT', `/threads/${encodeURIComponent(id)}/device`, { token, body: device });
