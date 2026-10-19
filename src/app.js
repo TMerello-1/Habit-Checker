@@ -9,7 +9,7 @@ import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
 import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
-import { bestBadges, currentStreak, dueToday, editHabit, isDone, levelProgress, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES } from './habits.js';
+import { bestBadges, currentStreak, editHabit, isDone, isOpen, levelProgress, missedYesterday, onToday, openToday, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
@@ -44,8 +44,9 @@ function commit() {
 // confirm(), which the hosted preview blocks. With "Ask before checking off" turned
 // off in the ⋮ menu, it checks straight away and the toast offers Undo instead.
 // `date` is today, or yesterday for a habit checked off late (see missedYesterday).
+// A tap on a pile habit always adds a round; its − button or Undo takes one back.
 function toggle(habit, date = new Date()) {
-  if (isDone(state.completions, habit.id, date)) return applyToggle(habit, date);
+  if (!habit.pile && isDone(state.completions, habit.id, date)) return applyToggle(habit, date);
   if (!prefs.confirm) return applyToggle(habit, date, true);
   const dlg = $('#confirm-done');
   const late = dateKey(date) !== dateKey();
@@ -61,10 +62,11 @@ function toggle(habit, date = new Date()) {
 function applyToggle(habit, date = new Date(), undoable = false) {
   const key = dateKey(date);
   const list = state.completions[habit.id] || [];
-  const checking = !list.includes(key);
+  const checking = habit.pile || !list.includes(key);
   const before = currentStreak(habit, state.completions);
   const levelBefore = rewards(state.habits, state.completions).level;
   state.completions[habit.id] = checking ? [...list, key] : list.filter((d) => d !== key);
+  if (habit.pile) undoable = true;
   if (checking && key === dateKey()) dismissReminder(habit.id).catch(() => {});
   const after = currentStreak(habit, state.completions);
   const level = rewards(state.habits, state.completions).level;
@@ -74,9 +76,18 @@ function applyToggle(habit, date = new Date(), undoable = false) {
   const msg = level > levelBefore
     ? t('levelUp', { level })
     : milestone
-      ? t('milestoneToast', { m: milestone, name: habit.name })
+      ? t('milestoneToast', { m: milestone, name: habit.name, unit: t(`unit_${streakUnit(habit)}`) })
       : t('pointsToast', { streak: after });
-  toast(msg, undoable ? { label: t('undo'), run: () => applyToggle(habit, date) } : null);
+  toast(msg, undoable ? { label: t('undo'), run: () => (habit.pile ? removeRound(habit, date) : applyToggle(habit, date)) } : null);
+}
+
+// Takes back one round of a pile habit logged on `date`.
+function removeRound(habit, date = new Date()) {
+  const list = state.completions[habit.id] || [];
+  const i = list.lastIndexOf(dateKey(date));
+  if (i < 0) return;
+  state.completions[habit.id] = list.filter((_, j) => j !== i);
+  commit();
 }
 
 let lastLevel = null;
@@ -95,8 +106,8 @@ function render() {
   renderProgressSheet(r, p);
 
   const now = new Date();
-  const today = sortToday(dueToday(habits, now), state.completions, now);
-  const done = today.filter((h) => isDone(state.completions, h.id, now)).length;
+  const today = sortToday(onToday(habits, state.completions, now), state.completions, now);
+  const done = today.filter((h) => !isOpen(h, state.completions, now)).length;
   setBadge(openToday(habits, state.completions).length);
   $('#empty').hidden = habits.length > 0;
   $('#today-summary').textContent = !habits.length
@@ -108,9 +119,9 @@ function render() {
         : t('todaySummary', { done, total: today.length });
   // Open habits first (by time), then the private group, then the ones already done.
   const shown = today.filter((h) => !h.private);
-  const doneItems = shown.filter((h) => isDone(state.completions, h.id, now)).map((h) => todayItem(h, now));
+  const doneItems = shown.filter((h) => !isOpen(h, state.completions, now)).map((h) => todayItem(h, now));
   const items = [
-    ...shown.filter((h) => !isDone(state.completions, h.id, now)).map((h) => todayItem(h, now)),
+    ...shown.filter((h) => isOpen(h, state.completions, now)).map((h) => todayItem(h, now)),
     ...privateGroup(today.filter((h) => h.private), 'today', (h) => todayItem(h, now)),
   ];
   if (doneItems.length) {
@@ -155,25 +166,41 @@ function render() {
   renderMenu();
 }
 
-// The whole row is the tap target; the circle is just the visual cue.
+// The whole row is the tap target; the circle is just the visual cue. A pile habit's row
+// shows what's left on its pile, and a − button once a round was logged that day.
 function todayItem(h, date) {
   const li = document.createElement('li');
-  const checked = isDone(state.completions, h.id, date);
   const late = dateKey(date) !== dateKey();
+  const checked = late || !h.pile ? isDone(state.completions, h.id, date) : !isOpen(h, state.completions, date);
   const streak = currentStreak(h, state.completions);
+  const note = h.pile && !late ? pileText(h, date) : h.time && !late ? h.time : '';
   li.innerHTML = `
     <button type="button" class="habit check-row${checked ? ' done' : ''}${h.id === highlight ? ' flash' : ''}" aria-pressed="${checked}"
       aria-label="${esc(t(late ? 'markDoneYesterday' : 'markDone', { name: h.name }))}">
       <span class="check" aria-hidden="true">${checked ? '✓' : ''}</span>
       <span class="emoji">${esc(h.emoji)}</span>
-      <span class="name"><span class="title">${esc(h.name)}</span>${h.time && !late ? `<small>${h.time}</small>` : ''}</span>
+      <span class="name"><span class="title">${esc(h.name)}</span>${note ? `<small>${esc(note)}</small>` : ''}</span>
       ${late ? '' : `<span class="streak${streak ? '' : ' zero'}" title="${esc(t('currentStreak'))}">${streak}🔥</span>`}
     </button>`;
   li.querySelector('button').onclick = () => {
     if (late) lateChecked.add(h.id); // stays listed after checking, so a mistake can be undone
     toggle(h, date);
   };
+  if (h.pile && isDone(state.completions, h.id, date)) {
+    li.className = 'pile-row';
+    const minus = Object.assign(document.createElement('button'), { type: 'button', className: 'minus', textContent: '−1' });
+    minus.setAttribute('aria-label', t('removeRound', { name: h.name }));
+    minus.onclick = () => removeRound(h, date);
+    li.append(minus);
+  }
   return li;
+}
+
+// "3 to go this week", "Pile cleared" or "1 ahead", plus the reminder time.
+function pileText(h, date) {
+  const n = pileCount(h, state.completions, date);
+  const text = n > 0 ? t(`pileToGo_${h.pile}`, { n }) : n < 0 ? t('pileAhead', { n: -n }) : t('pileClear');
+  return h.time ? `${text} · ${h.time}` : text;
 }
 const lateChecked = new Set();
 
@@ -181,7 +208,8 @@ function scheduleText(h) {
   const kind = scheduleKind(h.days);
   const order = [1, 2, 3, 4, 5, 6, 0].filter((d) => h.days.includes(d));
   const days = kind ? t(kind === 'weekdays' ? 'weekdaysPreset' : kind) : order.map((d) => t('weekdays')[d]).join(' ');
-  return h.time ? `${days} · ${h.time}` : days;
+  const parts = [days, h.pile && t(`pileShort_${h.pile}`), h.time].filter(Boolean);
+  return parts.join(' · ');
 }
 
 function allItem(h) {
@@ -230,6 +258,8 @@ function setProgress(p) {
   lastLevel = p.level;
 }
 
+const BADGE_TEXT = { day: 'badgeDays', week: 'badgeWeeks', month: 'badgeMonths' };
+
 // Badges live in the Progress sheet (tap the level in the header): one tile per habit
 // with its best streak badge and the next one to aim for.
 function renderProgressSheet(r, p) {
@@ -240,7 +270,7 @@ function renderProgressSheet(r, p) {
     li.className = 'badge-tile';
     li.innerHTML = `
       <span class="badge-emoji" aria-hidden="true">${esc(habit.private ? '🔒' : habit.emoji)}</span>
-      <b>${esc(t('badgeDays', { m: b.milestone }))}</b>
+      <b>${esc(t(BADGE_TEXT[b.unit] ?? 'badgeDays', { m: b.milestone }))}</b>
       <small>${esc(b.next ? t('nextBadge', { m: b.next }) : t('allBadges'))}</small>`;
     return li;
   });
@@ -274,7 +304,7 @@ const privateOpen = { today: false, yesterday: false, all: false };
 function privateGroup(hidden, list, item) {
   if (!hidden.length) return [];
   const date = list === 'yesterday' ? addDays(new Date(), -1) : new Date();
-  const done = hidden.filter((h) => isDone(state.completions, h.id, date)).length;
+  const done = hidden.filter((h) => (list === 'yesterday' ? isDone(state.completions, h.id, date) : !isOpen(h, state.completions, date))).length;
   const li = document.createElement('li');
   li.className = 'private-group';
   li.innerHTML = `
@@ -385,6 +415,7 @@ function startEdit(habit) {
   setDays(habit.days);
   form.elements.time.value = habit.time;
   form.elements.private.checked = Boolean(habit.private);
+  form.elements.pile.value = habit.pile || '';
   pickEmoji(habit.emoji);
   $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
   setFormMode();
@@ -442,6 +473,7 @@ form.onsubmit = (e) => {
     days,
     time: f.get('time') || '',
     private: f.has('private'),
+    pile: f.get('pile') || undefined,
   };
   const i = state.habits.findIndex((h) => h.id === editing);
   let id;

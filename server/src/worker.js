@@ -5,7 +5,7 @@
 // push for each reminder that is due, so reminders arrive while the app is closed.
 //
 // Storage (KV namespace bound as SUBS):
-//   "sub:<id>"  one record per subscription: { subscription, timeZone, habits, done, notified, updatedAt }
+//   "sub:<id>"  one record per subscription: { subscription, timeZone, habits, done, rounds, notified, updatedAt }
 //   "index"     JSON array of every <id>, so the cron reads one key instead of listing
 //               (KV's free plan allows far more reads than list calls).
 // Secret VAPID_JWK holds the VAPID private key; the deploy workflow creates it once.
@@ -17,6 +17,7 @@
 // can call it.
 
 import { dueHabits, isValidTimeZone, localClock } from './schedule.js';
+import { PILE_PERIODS } from '../../src/habits.js';
 import { sendPush, vapidPublicKey } from './webpush.js';
 
 const CORS = {
@@ -78,7 +79,17 @@ function cleanHabits(habits) {
     days: Array.isArray(h.days) ? h.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [],
     time: /^\d{2}:\d{2}$/.test(h.time) ? h.time : '',
     createdAt: isDateKey(h.createdAt) ? h.createdAt : '1970-01-01',
+    ...(PILE_PERIODS.includes(h.pile) ? { pile: h.pile } : {}),
   }));
+}
+
+// Pile habits' rounds: { [habitId]: ["YYYY-MM-DD", ...] }, a day repeated once per round.
+function cleanRounds(rounds) {
+  const out = {};
+  for (const [id, keys] of Object.entries(rounds || {}).slice(0, 200)) {
+    if (Array.isArray(keys)) out[str(id, 64)] = keys.filter(isDateKey).slice(-500);
+  }
+  return out;
 }
 
 function cleanDone(done) {
@@ -111,6 +122,7 @@ async function subscribe(request, env) {
     timeZone: body.timeZone,
     habits,
     done: cleanDone(body.done),
+    rounds: cleanRounds(body.rounds),
     texts: { title: str(body.texts?.title, 120), body: str(body.texts?.body, 200) },
     notified: keptNotified(previous, habits),
     updatedAt: new Date().toISOString(),

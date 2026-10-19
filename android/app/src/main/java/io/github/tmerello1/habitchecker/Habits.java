@@ -3,6 +3,7 @@ package io.github.tmerello1.habitchecker;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import org.json.JSONArray;
@@ -11,11 +12,14 @@ import org.json.JSONObject;
 /**
  * Reads the web app's saved state (the localStorage JSON from src/store.js) and answers the
  * same questions as src/habits.js: which habits are scheduled on a day and which are still
- * open. Keep isScheduled() in step with the JavaScript version.
+ * open. Keep isScheduled() and the pile rules (pileCount, isOpen, remindOn) in step with
+ * the JavaScript version.
  */
 final class Habits {
     static final class Habit {
         final String id, name, emoji, time;
+        /** "day", "week" or "month" for a pile habit, "" otherwise. */
+        final String pile;
         /** Private habits are listed and reminded without their name. */
         final boolean isPrivate;
         final JSONObject json;
@@ -27,6 +31,8 @@ final class Habits {
             emoji = h.optString("emoji", "✅");
             time = h.optString("time", "");
             isPrivate = h.optBoolean("private", false);
+            String p = h.optString("pile", "");
+            pile = p.equals("day") || p.equals("week") || p.equals("month") ? p : "";
         }
 
         String label() {
@@ -86,22 +92,72 @@ final class Habits {
         return false;
     }
 
-    List<Habit> scheduled(LocalDate date) {
+    /** Pile habits: the first and last day of the period (day, week from Monday, month). */
+    static LocalDate periodStart(String period, LocalDate date) {
+        if (period.equals("week")) return date.minusDays(date.getDayOfWeek().getValue() - 1);
+        if (period.equals("month")) return date.withDayOfMonth(1);
+        return date;
+    }
+
+    static LocalDate periodEnd(String period, LocalDate date) {
+        if (period.equals("week")) return periodStart(period, date).plusDays(6);
+        if (period.equals("month")) return date.with(TemporalAdjusters.lastDayOfMonth());
+        return date;
+    }
+
+    /** Rounds still to do this period, like pileCount(): planned days so far minus rounds done. */
+    int pileCount(Habit habit, LocalDate date) {
+        LocalDate start = periodStart(habit.pile, date);
+        int n = 0;
+        for (LocalDate d = start; !d.isAfter(date); d = d.plusDays(1)) if (isScheduled(habit, d)) n++;
+        JSONArray done = completions.optJSONArray(habit.id);
+        String from = start.toString(), to = date.toString();
+        for (int i = 0; done != null && i < done.length(); i++) {
+            String k = done.optString(i);
+            if (k.compareTo(from) >= 0 && k.compareTo(to) <= 0) n--;
+        }
+        return n;
+    }
+
+    boolean isOpen(Habit habit, LocalDate date) {
+        if (!habit.pile.isEmpty()) return pileCount(habit, date) > 0;
+        return isScheduled(habit, date) && !isDone(habit, date);
+    }
+
+    boolean remindOn(Habit habit, LocalDate date) {
+        if (!isOpen(habit, date)) return false;
+        return isScheduled(habit, date) || (!habit.pile.isEmpty() && date.equals(periodEnd(habit.pile, date)));
+    }
+
+    /** Today's list, like onToday(): scheduled habits plus pile habits that still owe rounds. */
+    List<Habit> onToday(LocalDate date) {
         List<Habit> out = new ArrayList<>();
-        for (Habit h : habits) if (isScheduled(h, date)) out.add(h);
+        for (Habit h : habits) {
+            if (isScheduled(h, date) || (!h.pile.isEmpty() && pileCount(h, date) > 0)) out.add(h);
+        }
         return out;
     }
 
     List<Habit> open(LocalDate date) {
         List<Habit> out = new ArrayList<>();
-        for (Habit h : scheduled(date)) if (!isDone(h, date)) out.add(h);
+        for (Habit h : habits) if (isOpen(h, date)) out.add(h);
         return out;
     }
 
-    /** Open habits on `now`'s day whose reminder time has passed, like dueReminders(). */
+    List<Habit> all() {
+        return habits;
+    }
+
+    private List<Habit> remindable(LocalDate date) {
+        List<Habit> out = new ArrayList<>();
+        for (Habit h : habits) if (remindOn(h, date)) out.add(h);
+        return out;
+    }
+
+    /** Habits to remind on `now`'s day whose reminder time has passed, like dueReminders(). */
     List<Habit> due(LocalDateTime now) {
         List<Habit> out = new ArrayList<>();
-        for (Habit h : open(now.toLocalDate())) {
+        for (Habit h : remindable(now.toLocalDate())) {
             LocalTime t = parseTime(h.time);
             if (t != null && !t.isAfter(now.toLocalTime())) out.add(h);
         }
@@ -113,7 +169,7 @@ final class Habits {
         for (int d = 0; d <= 7; d++) {
             LocalDate date = now.toLocalDate().plusDays(d);
             LocalDateTime best = null;
-            for (Habit h : open(date)) {
+            for (Habit h : remindable(date)) {
                 LocalTime t = parseTime(h.time);
                 if (t == null) continue;
                 LocalDateTime at = date.atTime(t);

@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 20, date: '2026-10-19', notable: true,
+    en: 'Pile habits: missed rounds pile up for the next day, and with a weekly or monthly target you can catch up any day before Sunday or the month\'s end and keep your streak. Turn it on when adding or editing a habit.',
+    de: 'Stapel-Gewohnheiten: Verpasste Runden stapeln sich für den nächsten Tag, und mit Wochen- oder Monatsziel holst du sie an jedem Tag bis Sonntag oder Monatsende nach und behältst deine Serie. Einschalten beim Hinzufügen oder Bearbeiten einer Gewohnheit.',
+  },
+  {
     v: 19, date: '2026-10-19',
     en: 'My profile shows when your habits were last backed up, with a "Back up now" button.',
     de: 'Mein Profil zeigt, wann deine Gewohnheiten zuletzt gesichert wurden, mit einem Knopf „Jetzt sichern“.',

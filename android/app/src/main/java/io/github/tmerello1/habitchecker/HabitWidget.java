@@ -28,7 +28,7 @@ public class HabitWidget extends AppWidgetProvider {
         String state = Store.state(ctx);
         Habits habits = new Habits(state);
         LocalDate today = LocalDate.now();
-        int scheduled = habits.scheduled(today).size();
+        int scheduled = habits.onToday(today).size();
         List<Habits.Habit> open = habits.open(today);
 
         String count;
@@ -47,6 +47,9 @@ public class HabitWidget extends AppWidgetProvider {
             for (Habits.Habit h : open) {
                 if (list.length() > 0) list.append('\n');
                 list.append(h.isPrivate ? ctx.getString(R.string.widget_private) : h.label());
+                if (!h.pile.isEmpty() && !h.isPrivate) {
+                    list.append("  ·  ").append(ctx.getString(R.string.widget_pile, habits.pileCount(h, today)));
+                }
                 if (!h.time.isEmpty()) list.append("  ·  ").append(h.time);
             }
         }

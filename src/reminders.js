@@ -3,10 +3,11 @@
 // way to wake itself at a set time when closed; that needs a Web Push server.
 
 import { dateKey } from './dates.js';
-import { isDone, isScheduled } from './habits.js';
+import { remindOn } from './habits.js';
 import { t } from './i18n.js';
 
 // Habits whose reminder time has passed today, that aren't done and weren't already notified.
+// A pile habit is reminded while it owes rounds (see remindOn()).
 export function dueReminders(state, now = new Date()) {
   const today = dateKey(now);
   const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -14,8 +15,7 @@ export function dueReminders(state, now = new Date()) {
     (h) =>
       h.time &&
       h.time <= hhmm &&
-      isScheduled(h, now) &&
-      !isDone(state.completions, h.id, now) &&
+      remindOn(h, state.completions, now) &&
       state.notified[h.id] !== today,
   );
 }

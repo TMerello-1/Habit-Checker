@@ -3,7 +3,7 @@
 // then reuses the app's scheduling rules unchanged.
 
 import { dateKey } from '../../src/dates.js';
-import { isScheduled } from '../../src/habits.js';
+import { isScheduled, remindOn } from '../../src/habits.js';
 
 // A cron tick can be skipped or late, so a reminder still goes out if its time
 // passed within this many minutes and it hasn't been sent today.
@@ -38,12 +38,15 @@ export function isValidTimeZone(tz) {
   }
 }
 
-// record: { timeZone, habits, done: { [habitId]: "YYYY-MM-DD" of latest check-in }, notified: { [habitId]: "YYYY-MM-DD" } }
+// record: { timeZone, habits, done: { [habitId]: "YYYY-MM-DD" of latest check-in },
+//   rounds: { [habitId]: ["YYYY-MM-DD", ...] } for pile habits, notified: { [habitId]: "YYYY-MM-DD" } }
 export function dueHabits(record, now = new Date()) {
   const { day, today, minutes } = localClock(record.timeZone, now);
   return record.habits.filter((h) => {
-    if (!h.time || !isScheduled(h, day)) return false;
-    if (record.done?.[h.id] === today || record.notified?.[h.id] === today) return false;
+    if (!h.time || record.notified?.[h.id] === today) return false;
+    if (h.pile) {
+      if (!remindOn(h, record.rounds || {}, day)) return false;
+    } else if (!isScheduled(h, day) || record.done?.[h.id] === today) return false;
     const [hh, mm] = h.time.split(':').map(Number);
     const late = minutes - (hh * 60 + mm);
     return late >= 0 && late < CATCH_UP_MINUTES;

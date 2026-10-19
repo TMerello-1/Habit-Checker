@@ -72,6 +72,15 @@ export function syncPush(state) {
   }, 1500);
 }
 
+// Pile habits are reminded by what's left on their pile, so the server gets their rounds
+// from the last 31 days, enough for the current week or month.
+function pileRounds(state) {
+  const since = dateKey(new Date(Date.now() - 31 * 86400000));
+  const out = {};
+  for (const h of state.habits) if (h.pile) out[h.id] = (state.completions[h.id] || []).filter((k) => k >= since);
+  return out;
+}
+
 async function send(state, sub) {
   // The server only needs the date of each habit's latest check-in to skip finished ones.
   const done = {};
@@ -79,8 +88,9 @@ async function send(state, sub) {
   const body = JSON.stringify({
     subscription: sub.toJSON(),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    habits: state.habits.map(({ id, name, emoji, days, time, createdAt }) => ({ id, name, emoji, days, time, createdAt })),
+    habits: state.habits.map(({ id, name, emoji, days, time, createdAt, pile }) => ({ id, name, emoji, days, time, createdAt, pile })),
     done,
+    rounds: pileRounds(state),
     // Templates in the app's language; the server fills in {emoji} and {name}.
     texts: { title: STRINGS[getLang()].reminderTitle, body: STRINGS[getLang()].reminderBody },
   });

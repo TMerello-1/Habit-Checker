@@ -99,13 +99,13 @@ test('level progress counts points within the current level', () => {
 
 test('best badges keep the highest milestone per habit and the next one', () => {
   const badges = [
-    { habitId: 'a', milestone: 3 }, { habitId: 'a', milestone: 7 },
-    { habitId: 'b', milestone: 3 }, { habitId: 'c', milestone: 100 },
+    { habitId: 'a', milestone: 3, unit: 'day' }, { habitId: 'a', milestone: 7, unit: 'day' },
+    { habitId: 'b', milestone: 3, unit: 'week' }, { habitId: 'c', milestone: 100, unit: 'day' },
   ];
   assert.deepEqual(bestBadges(badges), [
-    { habitId: 'a', milestone: 7, next: 14 },
-    { habitId: 'b', milestone: 3, next: 7 },
-    { habitId: 'c', milestone: 100, next: null },
+    { habitId: 'a', milestone: 7, unit: 'day', next: 14 },
+    { habitId: 'b', milestone: 3, unit: 'week', next: 7 },
+    { habitId: 'c', milestone: 100, unit: 'day', next: null },
   ]);
 });
 
