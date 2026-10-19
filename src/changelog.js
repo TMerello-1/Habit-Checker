@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 19, date: '2026-10-19',
+    en: 'My profile shows when your habits were last backed up, with a "Back up now" button.',
+    de: 'Mein Profil zeigt, wann deine Gewohnheiten zuletzt gesichert wurden, mit einem Knopf „Jetzt sichern“.',
+  },
+  {
     v: 18, date: '2026-10-19', notable: true,
     en: 'Your recovery code now brings back your habits too: with a profile, your habits, their history and your friends\' nicknames are backed up, encrypted so only your code can read them.',
     de: 'Dein Wiederherstellungscode holt jetzt auch deine Gewohnheiten zurück: Mit Profil werden deine Gewohnheiten, ihr Verlauf und die Spitznamen deiner Freunde gesichert, verschlüsselt, sodass nur dein Code sie lesen kann.',

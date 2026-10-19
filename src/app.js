@@ -632,6 +632,9 @@ function renderFriends() {
   avatar($('#profile-avatar'), me.name);
   $('#profile-name').textContent = nameOf(me);
   $('#recovery-code').textContent = formatCode(friends.code);
+  $('#backup-status').textContent = friends.backedUpAt
+    ? t('lastBackup', { when: new Date(friends.backedUpAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' }) })
+    : t('noBackupYet');
   $('#no-friends').hidden = friends.friends.length > 0;
   $('#friend-list').replaceChildren(...friends.friends.map(friendItem));
   $('#add-preview').hidden = !preview;
@@ -716,7 +719,7 @@ async function friendsCall(fn, messages = {}) {
     // A null message keeps a background call quiet, e.g. a refresh while offline.
     if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
     if (err.status === 401 && friends.me) {
-      friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '', backup: false, backedUp: '' };
+      friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '', backup: false, backedUp: '', backedUpAt: '' };
       commitFriends();
       return toast(t('profileGone'));
     }
@@ -757,36 +760,50 @@ function sendStatsSoon(delay = 1500) {
 
 // Habit backup (see backup.js): while signed in, the habits, their history and the
 // nicknames are kept encrypted on the friends server, shortly after each change.
-// `friends.backedUp` fingerprints the last upload, so an unchanged device sends nothing.
+// `friends.backedUp` fingerprints the last upload, so an unchanged device sends nothing,
+// and `friends.backedUpAt` is when it landed (shown in My profile).
 let backupTimer;
 function backupSoon(delay = 3000) {
   if (!friends.me || !friends.backup) return;
   clearTimeout(backupTimer);
-  backupTimer = setTimeout(async () => {
-    const code = friends.code;
-    const text = backupText(state, friends.nicknames);
-    const hash = await backupHash(text);
-    if (hash === friends.backedUp) return;
-    await friendsCall(async () => {
-      await uploadBackup(code, await encryptBackup(code, text));
-      if (code !== friends.code) return;
-      friends.backedUp = hash;
-      saveFriends(friends);
-    }, { 0: null });
-  }, delay);
+  backupTimer = setTimeout(() => backUp(), delay);
 }
+
+// `force` is "Back up now" in My profile: it uploads even when nothing changed, and says how it went.
+async function backUp(force = false) {
+  const code = friends.code;
+  const text = backupText(state, friends.nicknames);
+  const hash = await backupHash(text);
+  if (hash === friends.backedUp && !force) return;
+  await friendsCall(async () => {
+    const { updatedAt } = await uploadBackup(code, await encryptBackup(code, text));
+    if (code !== friends.code) return;
+    friends.backedUp = hash;
+    friends.backedUpAt = updatedAt;
+    commitFriends();
+    if (force) toast(t('backedUp'));
+  }, { 0: force ? 'offline' : null });
+}
+
+$('#backup-now').onclick = (e) =>
+  busy(e.currentTarget, async () => {
+    clearTimeout(backupTimer);
+    // Before the restore choice is made, the backup is offered back first, never overwritten.
+    if (!friends.backup) return checkBackup(true);
+    await backUp(true);
+  });
 
 // After signing in, decides whose habits count: the backup's when this device has none,
 // or the person's pick when both have some. Until then nothing is uploaded, so signing
 // in can't overwrite a backup before it's offered back. Offline, it tries again next start.
-async function checkBackup() {
+async function checkBackup(manual = false) {
   if (!friends.me || friends.backup) return;
   const code = friends.code;
   let saved = null;
   try {
     saved = await fetchBackup(code);
   } catch (err) {
-    if (!(err instanceof ServerError) || err.status !== 404) return;
+    if (!(err instanceof ServerError) || err.status !== 404) return manual && toast(t('offline'));
   }
   let backup = null;
   try {
@@ -833,7 +850,7 @@ function backupDecided() {
 
 // A new profile (`showProfile`) opens My profile straight away, so its recovery code gets saved.
 async function signedIn(code, data, message, showProfile = false) {
-  friends = { ...friends, code, me: data.me, admin: Boolean(data.admin), friends: data.friends || [], sent: '', backup: false, backedUp: '' };
+  friends = { ...friends, code, me: data.me, admin: Boolean(data.admin), friends: data.friends || [], sent: '', backup: false, backedUp: '', backedUpAt: '' };
   commitFriends();
   if (showProfile) $('#profile-dialog').showModal();
   toast(t(message, { name: nameOf(data.me) }));
@@ -974,7 +991,7 @@ $('#leave').onclick = (e) => {
   btn.textContent = t('deleteProfile');
   friendsCall(async () => {
     await deleteProfile(friends.code);
-    friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '' };
+    friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '', backedUpAt: '' };
     $('#invite-box').hidden = true;
     $('#profile-dialog').close();
     commitFriends();

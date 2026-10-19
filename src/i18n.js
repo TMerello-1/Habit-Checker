@@ -182,6 +182,10 @@ export const STRINGS = {
     friendAdded: '{name} is now your friend 🎉',
     recoveryHelp: "Save this code somewhere safe. It's the only way to get your profile, friends and habits back on a new phone.",
     backupTitle: 'Use your backup?',
+    backupNow: '☁️ Back up now',
+    backedUp: 'Backed up',
+    lastBackup: 'Your habits are backed up automatically. Last backup: {when}',
+    noBackupYet: 'Your habits are backed up automatically. No backup from this device yet.',
     backupOffer: {
       one: 'Your profile has a backup with {n} habit, saved on {date}. Use it and replace the habits on this phone ({here})?',
       other: 'Your profile has a backup with {n} habits, saved on {date}. Use it and replace the habits on this phone ({here})?',
@@ -390,6 +394,10 @@ export const STRINGS = {
     friendAdded: '{name} ist jetzt dein Freund 🎉',
     recoveryHelp: 'Bewahr diesen Code gut auf. Nur damit bekommst du dein Profil, deine Freunde und deine Gewohnheiten auf einem neuen Handy zurück.',
     backupTitle: 'Sicherung verwenden?',
+    backupNow: '☁️ Jetzt sichern',
+    backedUp: 'Gesichert',
+    lastBackup: 'Deine Gewohnheiten werden automatisch gesichert. Letzte Sicherung: {when}',
+    noBackupYet: 'Deine Gewohnheiten werden automatisch gesichert. Von diesem Gerät gibt es noch keine Sicherung.',
     backupOffer: {
       one: 'Dein Profil hat eine Sicherung mit {n} Gewohnheit vom {date}. Verwenden und die Gewohnheiten auf diesem Handy ({here}) ersetzen?',
       other: 'Dein Profil hat eine Sicherung mit {n} Gewohnheiten vom {date}. Verwenden und die Gewohnheiten auf diesem Handy ({here}) ersetzen?',
