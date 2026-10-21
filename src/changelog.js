@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 23, date: '2026-10-21', notable: true,
+    en: 'Your habits now sync between devices: sign in with the same recovery code on two phones (or phone and browser), and new habits, edits and check-ins from both show up on each.',
+    de: 'Deine Gewohnheiten synchronisieren sich jetzt zwischen Geräten: Melde dich mit demselben Wiederherstellungscode auf zwei Handys (oder Handy und Browser) an, und neue Gewohnheiten, Änderungen und Häkchen von beiden erscheinen auf jedem.',
+  },
+  {
     v: 22, date: '2026-10-21',
     en: 'My profile has "Sign out and clear this phone": it backs up, then removes your habits and profile from this phone only. Your recovery code brings everything back.',
     de: 'Mein Profil hat „Abmelden und Handy leeren“: Es sichert und entfernt dann deine Gewohnheiten und dein Profil nur von diesem Handy. Dein Wiederherstellungscode holt alles zurück.',

@@ -196,7 +196,7 @@
       </div>
       <div class="code-box">
         <p class="muted" id="backup-status"></p>
-        <button type="button" id="backup-now" class="secondary" data-i18n="backupNow">☁️ Back up now</button>
+        <button type="button" id="backup-now" class="secondary" data-i18n="backupNow">☁️ Sync now</button>
       </div>
       <div class="danger-zone">
         <button type="button" id="sign-out" class="link" data-i18n="signOut">Sign out and clear this phone</button>
@@ -293,11 +293,11 @@
   <dialog id="backup-dialog" class="confirm" aria-labelledby="backup-title">
     <form method="dialog">
       <p class="confirm-emoji" aria-hidden="true">☁️</p>
-      <h2 id="backup-title" data-i18n="backupTitle">Use your backup?</h2>
+      <h2 id="backup-title" data-i18n="backupTitle">Combine with your backup?</h2>
       <p id="backup-text"></p>
       <div class="row">
-        <button value="keep" class="cancel" data-i18n="backupKeep">Keep this phone's</button>
-        <button value="use" type="submit" data-i18n="backupUse">Use backup</button>
+        <button value="use" class="cancel" data-i18n="backupUse">Only the backup</button>
+        <button value="combine" type="submit" data-i18n="backupCombine">Combine</button>
       </div>
     </form>
   </dialog>

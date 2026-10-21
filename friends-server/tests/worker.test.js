@@ -378,3 +378,16 @@ test('a backup must be base64 text of a sensible size', async () => {
     assert.equal((await call('PUT', '/me/backup', { code, body: { data } })).status, 400);
   }
 });
+
+test('a backup write based on an older copy is refused, so devices merge first', async () => {
+  const { code } = await join();
+  const first = await call('PUT', '/me/backup', { code, body: { data: 'AAAA', base: null } });
+  assert.equal(first.status, 200);
+  assert.equal((await call('PUT', '/me/backup', { code, body: { data: 'BBBB', base: null } })).status, 409);
+  await new Promise((r) => setTimeout(r, 2));
+  const second = await call('PUT', '/me/backup', { code, body: { data: 'CCCC', base: first.body.updatedAt } });
+  assert.equal(second.status, 200);
+  assert.equal((await call('PUT', '/me/backup', { code, body: { data: 'DDDD', base: first.body.updatedAt } })).status, 409);
+  assert.equal((await call('GET', '/me/backup', { code })).body.data, 'CCCC');
+  assert.equal((await call('PUT', '/me/backup', { code, body: { data: 'EEEE', base: 5 } })).status, 400);
+});
