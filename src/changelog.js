@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 23, date: '2026-10-21',
+    en: 'Feedback you send while you have a profile now carries your profile name, so the team knows who it\'s from. Without a profile it\'s still sent, just without a name.',
+    de: 'Feedback, das du mit Profil sendest, trägt jetzt deinen Profilnamen, damit das Team weiß, von wem es kommt. Ohne Profil wird es weiter gesendet, nur ohne Namen.',
+  },
+  {
     v: 22, date: '2026-10-21',
     en: 'My profile has "Sign out and clear this phone": it backs up, then removes your habits and profile from this phone only. Your recovery code brings everything back.',
     de: 'Mein Profil hat „Abmelden und Handy leeren“: Es sichert und entfernt dann deine Gewohnheiten und dein Profil nur von diesem Handy. Dein Wiederherstellungscode holt alles zurück.',

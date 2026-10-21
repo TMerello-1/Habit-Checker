@@ -66,8 +66,9 @@ export const createInvite = (code) => api('POST', '/invites', { code });
 export const previewInvite = (code, invite) => api('GET', `/invites/${encodeURIComponent(invite)}`, { code });
 export const acceptInvite = (code, invite) => api('POST', `/invites/${encodeURIComponent(invite)}/accept`, { code });
 export const removeFriend = (code, id) => api('DELETE', `/friends/${encodeURIComponent(id)}`, { code });
-// Feedback needs no profile; reading and clearing it needs an admin profile.
-export const sendFeedback = (feedback) => api('POST', '/feedback', { body: feedback });
+// Feedback needs no profile, but when signed in (`code`) admins see the sender's name.
+// Reading and clearing it needs an admin profile.
+export const sendFeedback = (code, feedback) => api('POST', '/feedback', { code, body: feedback });
 export const fetchFeedback = (code) => api('GET', '/feedback', { code });
 export const deleteFeedback = (code, id) => api('DELETE', `/feedback/${encodeURIComponent(id)}`, { code });
 export const registerAdminDevice = (code, device) => api('PUT', '/admin/device', { code, body: device });
