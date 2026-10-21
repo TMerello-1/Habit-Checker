@@ -235,7 +235,8 @@
       <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
     </div>
     <div class="sheet-body">
-      <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? It's sent anonymously, and replies show up here.</p>
+      <p class="muted" data-i18n="feedbackIntro">What works, what doesn't, what you'd like to see? Replies show up here.</p>
+      <p id="feedback-from" class="muted"></p>
       <textarea id="feedback-text" rows="5" maxlength="2000" placeholder="Your feedback" aria-label="Your feedback" data-i18n-placeholder="feedbackPlaceholder" data-i18n-aria-label="feedbackPlaceholder"></textarea>
       <button type="button" id="feedback-send" data-i18n="sendFeedback">Send</button>
       <section id="my-feedback" hidden>
@@ -269,6 +270,7 @@
         <input type="search" id="inbox-search" placeholder="Search" aria-label="Search" data-i18n-placeholder="inboxSearch" data-i18n-aria-label="inboxSearch">
         <select id="inbox-platform" aria-label="Platform" data-i18n-aria-label="platform"></select>
         <select id="inbox-lang" aria-label="Language" data-i18n-aria-label="language"></select>
+        <select id="inbox-sender" aria-label="Sender" data-i18n-aria-label="sender"></select>
         <button type="button" id="inbox-sort" class="chip"></button>
       </div>
     </div>

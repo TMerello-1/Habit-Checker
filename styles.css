@@ -336,7 +336,10 @@ button[type=submit], #copy-data, #import-btn, #feedback-send {
 .fb-row:hover, .fb-row:focus-visible, .fb-row.open { background: var(--bg); outline: none; }
 .fb-row td { padding: 8px 4px; vertical-align: top; }
 .fb-status { width: 18px; }
-.fb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-text { overflow: hidden; }
+.fb-text > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-from { font-size: 12px; font-weight: 600; color: var(--text); }
+.fb-from.none { font-weight: 400; color: var(--muted); font-style: italic; }
 .fb-meta { width: 92px; text-align: right; color: var(--muted); font-size: 12px; line-height: 1.3; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
 .dot.new { background: #2563eb; }
