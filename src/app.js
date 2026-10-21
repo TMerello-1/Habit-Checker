@@ -1096,6 +1096,8 @@ $('#menu-feedback').onclick = () => {
 };
 
 function openMyFeedback() {
+  // Who admins will see it from: the profile name, or no name without a profile.
+  $('#feedback-from').textContent = friends.me ? t('feedbackAsName', { name: nameOf(friends.me) }) : t('feedbackNoName');
   if (!$('#feedback-dialog').open) $('#feedback-dialog').showModal();
   myFeedback = markSeen(myFeedback);
   saveMyFeedback();
@@ -1108,7 +1110,7 @@ $('#feedback-send').onclick = (e) => {
   busy(e.currentTarget, () =>
     friendsCall(async () => {
       const endpoint = await pushEndpoint().catch(() => null);
-      const { id, token } = await sendFeedback({
+      const { id, token } = await sendFeedback(friends.code, {
         text, lang, platform: androidApp ? 'android' : 'web', endpoint: endpoint || undefined, titles: feedbackTitles(),
       });
       $('#feedback-text').value = '';
@@ -1215,7 +1217,15 @@ function renderMyFeedback() {
 // stays manageable. Tapping a row opens it to reply, react or clear it.
 let inbox = [];
 let openFeedback = null;
-const inboxFilter = { status: 'all', platform: 'all', lang: 'all', query: '', oldestFirst: false };
+const inboxFilter = { status: 'all', platform: 'all', lang: 'all', sender: 'all', query: '', oldestFirst: false };
+
+// Who sent a feedback: their profile name, after your own nickname for them if they're a friend.
+function senderLabel(f) {
+  if (!f.sender) return t('noProfile');
+  const nick = friends.nicknames[f.sender.id];
+  const name = nameOf(f.sender);
+  return nick ? `${nick} (${name})` : name;
+}
 const STATUSES = ['all', 'new', 'waiting', 'answered'];
 const statusLabel = { all: 'statusAll', new: 'statusNew', waiting: 'statusWaiting', answered: 'statusAnswered' };
 
@@ -1236,6 +1246,10 @@ $('#inbox-lang').onchange = (e) => {
   inboxFilter.lang = e.target.value;
   renderInbox();
 };
+$('#inbox-sender').onchange = (e) => {
+  inboxFilter.sender = e.target.value;
+  renderInbox();
+};
 $('#inbox-sort').onclick = () => {
   inboxFilter.oldestFirst = !inboxFilter.oldestFirst;
   renderInbox();
@@ -1243,7 +1257,8 @@ $('#inbox-sort').onclick = () => {
 
 async function loadInbox() {
   await friendsCall(async () => {
-    ({ feedback: inbox } = await fetchFeedback(friends.code));
+    const { feedback } = await fetchFeedback(friends.code);
+    inbox = feedback.map((f) => ({ ...f, from: senderLabel(f) }));
     renderInbox();
   });
 }
@@ -1352,6 +1367,11 @@ function renderInbox() {
     option('all', t('allLanguages'), inboxFilter.lang),
     ...langs.map((l) => option(l, l.toUpperCase(), inboxFilter.lang)),
   );
+  $('#inbox-sender').replaceChildren(
+    option('all', t('allSenders'), inboxFilter.sender),
+    option('named', t('withProfile'), inboxFilter.sender),
+    option('none', t('noProfile'), inboxFilter.sender),
+  );
   $('#inbox-sort').textContent = t(inboxFilter.oldestFirst ? 'oldestFirst' : 'newestFirst');
 
   const shown = filterFeedback(inbox, inboxFilter);
@@ -1369,7 +1389,8 @@ function inboxRows(f) {
   const day = new Date(f.createdAt).toLocaleDateString(lang, { day: 'numeric', month: 'numeric' });
   row.innerHTML = `
     <td class="fb-status"><span class="dot ${status}" title="${esc(t(statusLabel[status]))}"></span></td>
-    <td class="fb-text">${f.reaction ? `${esc(f.reaction)} ` : ''}${esc(f.text)}</td>
+    <td class="fb-text"><div class="fb-from${f.sender ? '' : ' none'}">${esc(f.from)}</div>
+      <div>${f.reaction ? `${esc(f.reaction)} ` : ''}${esc(f.text)}</div></td>
     <td class="fb-meta">${esc(day)}<br>${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</td>`;
   const toggle = () => {
     openFeedback = open ? null : f.id;
@@ -1383,7 +1404,7 @@ function inboxRows(f) {
   detail.className = 'fb-detail';
   detail.innerHTML = `
     <td colspan="3">
-      <div class="inbox-meta"><span>${esc(shortDate(f.createdAt))} · ${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</span>
+      <div class="inbox-meta"><span><b class="fb-from${f.sender ? '' : ' none'}">${esc(f.from)}</b><br>${esc(shortDate(f.createdAt))} · ${esc(f.lang.toUpperCase())} · ${f.platform === 'android' ? 'Android' : 'Web'}</span>
         <button type="button" class="delete">${esc(t('inboxDone'))}</button></div>
       <p class="thread-text">${esc(f.text)}</p>
       <ul class="messages"></ul>

@@ -42,10 +42,10 @@ test('inbox status: new, answered, or waiting on the admin again', () => {
   assert.equal(feedbackStatus({ messages: [admin('hi'), sender('more')], reaction: '' }), 'waiting');
 });
 
-test('the inbox filters by status, platform, language and text, newest first unless asked', () => {
+test('the inbox filters by status, platform, language, sender and text, newest first unless asked', () => {
   const list = [
     { id: 1, text: 'Dark mode', lang: 'en', platform: 'web', createdAt: '2026-10-01T00:00:00Z', messages: [], reaction: '' },
-    { id: 2, text: 'Widget', lang: 'de', platform: 'android', createdAt: '2026-10-03T00:00:00Z', messages: [admin('Thanks')], reaction: '' },
+    { id: 2, text: 'Widget', lang: 'de', platform: 'android', createdAt: '2026-10-03T00:00:00Z', messages: [admin('Thanks')], reaction: '', sender: { id: 'p' }, from: 'Rosy Alpaca' },
     { id: 3, text: 'Bug', lang: 'de', platform: 'web', createdAt: '2026-10-02T00:00:00Z', messages: [admin('Which?'), sender('The streak one')], reaction: '' },
   ];
   const ids = (f) => filterFeedback(list, f).map((x) => x.id);
@@ -56,5 +56,8 @@ test('the inbox filters by status, platform, language and text, newest first unl
   assert.deepEqual(ids({ platform: 'web' }), [3, 1]);
   assert.deepEqual(ids({ lang: 'de', status: 'answered' }), [2]);
   assert.deepEqual(ids({ query: 'STREAK' }), [3]);
+  assert.deepEqual(ids({ query: 'alpaca' }), [2]);
+  assert.deepEqual(ids({ sender: 'named' }), [2]);
+  assert.deepEqual(ids({ sender: 'none' }), [3, 1]);
   assert.deepEqual(statusCounts(list), { all: 3, new: 1, waiting: 1, answered: 1 });
 });

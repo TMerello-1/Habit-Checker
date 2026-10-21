@@ -18,14 +18,15 @@
 //   POST   /invites/<code>/accept                   → { friend }
 //   DELETE /friends/<id>
 //   POST   /feedback               { text, lang, platform, endpoint?, titles? }
-//                                                  → { id, token }   no sign-in needed, anonymous
+//                                                  → { id, token }   no sign-in needed; when signed
+//                                                     in, admins see the sender's name
 //   GET    /feedback                                → { feedback }   admins only
 //   DELETE /feedback/<id>                                             admins only
 //   POST   /feedback/<id>/messages { text }                           admins only: reply
 //   PUT    /feedback/<id>/reaction { emoji }                          admins only ('' clears)
 //
-// The sender's side of a feedback thread uses the token from POST /feedback instead of a
-// profile, sent as "X-Feedback-Token: <token>":
+// The sender's side of a feedback thread uses the token from POST /feedback instead of the
+// profile (so it keeps working after signing out), sent as "X-Feedback-Token: <token>":
 //   GET    /threads/<id>                            → { reaction, messages }
 //   POST   /threads/<id>/messages  { text }                           answer back
 //   PUT    /threads/<id>/device    { endpoint, titles }               where to push replies
@@ -221,7 +222,7 @@ async function removeFriend(env, me, id) {
   return json({ ok: true });
 }
 
-async function sendFeedback(request, env, ctx) {
+async function sendFeedback(request, env, ctx, me) {
   const body = await request.json().catch(() => null);
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   if (!text || text.length > MAX_FEEDBACK_LENGTH) return fail(400, 'invalid feedback');
@@ -244,6 +245,10 @@ async function sendFeedback(request, env, ctx) {
       `INSERT INTO feedback_threads (feedback_id, token_hash, endpoint, reply_title, reaction_title, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     ).bind(id, await sha256(token), device.endpoint, device.replyTitle, device.reactionTitle, now.toISOString()),
+    ...(me
+      ? [env.DB.prepare('INSERT INTO feedback_senders (feedback_id, profile_id, adj, animal, num) VALUES (?, ?, ?, ?, ?)')
+          .bind(id, me.id, me.adj, me.animal, me.num)]
+      : []),
   ]);
   inBackground(ctx, notifyAdmins(env, text));
   return json({ ok: true, id, token }, 201);
@@ -420,11 +425,13 @@ async function saveAdminDevice(request, env, me) {
   return json({ ok: true });
 }
 
-// Newest first. Feedback sent before replies existed has no thread, so `replyable` is false.
+// Newest first. Feedback sent before replies existed has no thread, so `replyable` is false;
+// feedback sent without a profile has `sender: null`.
 async function listFeedback(env) {
   const { results } = await env.DB.prepare(
-    `SELECT f.*, t.reaction, t.feedback_id AS thread FROM feedback f
-     LEFT JOIN feedback_threads t ON t.feedback_id = f.id ORDER BY f.created_at DESC LIMIT 500`,
+    `SELECT f.*, t.reaction, t.feedback_id AS thread, s.profile_id, s.adj, s.animal, s.num FROM feedback f
+     LEFT JOIN feedback_threads t ON t.feedback_id = f.id
+     LEFT JOIN feedback_senders s ON s.feedback_id = f.id ORDER BY f.created_at DESC LIMIT 500`,
   ).all();
   const { results: messages } = await env.DB.prepare(
     `SELECT m.* FROM feedback_messages m JOIN feedback f ON f.id = m.feedback_id ORDER BY m.created_at, m.rowid`,
@@ -437,6 +444,7 @@ async function listFeedback(env) {
       platform: r.platform,
       createdAt: r.created_at,
       replyable: Boolean(r.thread),
+      sender: r.profile_id ? { id: r.profile_id, name: { adj: r.adj, animal: r.animal, num: r.num } } : null,
       reaction: r.reaction || '',
       messages: messages
         .filter((m) => m.feedback_id === r.id)
@@ -473,7 +481,8 @@ async function route(request, env, ctx) {
   const { method } = request;
   if (method === 'GET' && pathname === '/') return json({ ok: true, service: 'habit-checker-friends' });
   if (method === 'POST' && pathname === '/profiles') return createProfile(request, env);
-  if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env, ctx);
+  // Feedback works without a profile; when the sender is signed in, admins see who it is.
+  if (method === 'POST' && pathname === '/feedback') return sendFeedback(request, env, ctx, await signedIn(request, env));
   if (method === 'GET' && pathname === '/.well-known/assetlinks.json') return assetLinks(env);
   const invite = pathname.match(/^\/invite\/([^/]+)$/);
   if (method === 'GET' && invite) return inviteLink(env, invite[1]);
@@ -505,6 +514,7 @@ async function route(request, env, ctx) {
         env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(m[1]),
         env.DB.prepare('DELETE FROM feedback_threads WHERE feedback_id = ?').bind(m[1]),
         env.DB.prepare('DELETE FROM feedback_messages WHERE feedback_id = ?').bind(m[1]),
+        env.DB.prepare('DELETE FROM feedback_senders WHERE feedback_id = ?').bind(m[1]),
       ]);
       return json({ ok: true });
     }

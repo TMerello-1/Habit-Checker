@@ -29,8 +29,9 @@ CREATE TABLE IF NOT EXISTS invites (
   expires_at TEXT NOT NULL
 );
 
--- Feedback sent from the app's ⋮ menu. Anonymous: no profile is attached. ip_hash (a
--- SHA-256 of the sender's address) only limits how often one sender can post.
+-- Feedback sent from the app's ⋮ menu. Who sent it is in feedback_senders (no row when it was sent
+-- without a profile). ip_hash (a SHA-256 of the sender's
+-- address) only limits how often one sender can post.
 CREATE TABLE IF NOT EXISTS feedback (
   id TEXT PRIMARY KEY,
   text TEXT NOT NULL,
@@ -86,4 +87,14 @@ CREATE TABLE IF NOT EXISTS backups (
   profile_id TEXT PRIMARY KEY,
   data TEXT NOT NULL,               -- base64 of the IV and the AES-GCM ciphertext
   updated_at TEXT NOT NULL
+);
+
+-- The profile that sent each feedback, so admins see who wrote it. The name is copied in
+-- (positions in src/names.js) so it stays readable after the profile is deleted.
+CREATE TABLE IF NOT EXISTS feedback_senders (
+  feedback_id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL,
+  adj INTEGER NOT NULL,
+  animal INTEGER NOT NULL,
+  num INTEGER NOT NULL
 );

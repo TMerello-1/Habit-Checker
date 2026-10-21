@@ -64,15 +64,17 @@ export function feedbackStatus(f) {
 }
 
 // filter: { status: 'all'|'new'|'waiting'|'answered', platform: 'all'|'web'|'android',
-// lang: 'all'|<code>, query, oldestFirst }. The query matches the feedback and its messages.
+// lang: 'all'|<code>, sender: 'all'|'named'|'none', query, oldestFirst }. The query matches
+// the feedback, its messages and `from` (the sender's name as the app shows it).
 export function filterFeedback(list, filter = {}) {
   const query = (filter.query || '').trim().toLowerCase();
-  const hit = (f) => [f.text, ...(f.messages || []).map((m) => m.text)].some((s) => s.toLowerCase().includes(query));
+  const hit = (f) => [f.text, f.from || '', ...(f.messages || []).map((m) => m.text)].some((s) => s.toLowerCase().includes(query));
   const out = list.filter(
     (f) =>
       (!filter.status || filter.status === 'all' || feedbackStatus(f) === filter.status) &&
       (!filter.platform || filter.platform === 'all' || f.platform === filter.platform) &&
       (!filter.lang || filter.lang === 'all' || f.lang === filter.lang) &&
+      (!filter.sender || filter.sender === 'all' || (filter.sender === 'named') === Boolean(f.sender)) &&
       (!query || hit(f)),
   );
   // ISO timestamps sort as text.
