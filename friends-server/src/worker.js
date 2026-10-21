@@ -11,7 +11,8 @@
 //   GET    /me                                      → { me, friends }
 //   PUT    /me/stats               { level, streak }
 //   DELETE /me                                         deletes the profile and its links
-//   PUT    /me/backup              { data }         → { updatedAt }  the encrypted habit backup
+//   PUT    /me/backup              { data, base? }  → { updatedAt }  the encrypted habit backup;
+//                                                    409 when base isn't the stored updatedAt
 //   GET    /me/backup                               → { data, updatedAt }   404 when there is none
 //   POST   /invites                                 → { code, expiresAt }
 //   GET    /invites/<code>                          → { profile }  who sent it, before accepting
@@ -153,12 +154,24 @@ async function saveBackup(request, env, me) {
     return fail(400, 'invalid backup');
   }
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    `INSERT INTO backups (profile_id, data, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT (profile_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-  )
-    .bind(me.id, data, now)
-    .run();
+  // `base` is the updatedAt the device merged with (null: it saw no backup). If another
+  // device stored a newer copy since, nothing is written and the device merges again.
+  // Without `base` (apps from before sync) the copy is stored as it is.
+  const base = body.base;
+  if (base !== undefined && base !== null && typeof base !== 'string') return fail(400, 'invalid backup');
+  let query;
+  if (base === undefined) {
+    query = env.DB.prepare(
+      `INSERT INTO backups (profile_id, data, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT (profile_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+    ).bind(me.id, data, now);
+  } else if (base === null) {
+    query = env.DB.prepare('INSERT INTO backups (profile_id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').bind(me.id, data, now);
+  } else {
+    query = env.DB.prepare('UPDATE backups SET data = ?, updated_at = ? WHERE profile_id = ? AND updated_at = ?').bind(data, now, me.id, base);
+  }
+  const { meta } = await query.run();
+  if (!meta.changes) return fail(409, 'backup changed');
   return json({ updatedAt: now });
 }
 

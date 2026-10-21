@@ -59,8 +59,9 @@ export const createProfile = (name) => api('POST', '/profiles', { body: { adj: n
 export const fetchMe = (code) => api('GET', '/me', { code });
 export const sendStats = (code, stats) => api('PUT', '/me/stats', { code, body: stats });
 export const deleteProfile = (code) => api('DELETE', '/me', { code });
-// The habit backup, already encrypted by backup.js.
-export const uploadBackup = (code, data) => api('PUT', '/me/backup', { code, body: { data } });
+// The habit backup, already encrypted by backup.js, through which devices sync (sync.js).
+// `base` is the updatedAt of the copy it was merged with (null for none); a newer one is a 409.
+export const uploadBackup = (code, data, base) => api('PUT', '/me/backup', { code, body: { data, base } });
 export const fetchBackup = (code) => api('GET', '/me/backup', { code });
 export const createInvite = (code) => api('POST', '/invites', { code });
 export const previewInvite = (code, invite) => api('GET', `/invites/${encodeURIComponent(invite)}`, { code });

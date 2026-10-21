@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 24, date: '2026-10-21', notable: true,
+    en: 'Your habits now sync between devices: sign in with the same recovery code on two phones (or phone and browser), and new habits, edits and check-ins from both show up on each.',
+    de: 'Deine Gewohnheiten synchronisieren sich jetzt zwischen Geräten: Melde dich mit demselben Wiederherstellungscode auf zwei Handys (oder Handy und Browser) an, und neue Gewohnheiten, Änderungen und Häkchen von beiden erscheinen auf jedem.',
+  },
+  {
     v: 23, date: '2026-10-21',
     en: 'Feedback you send while you have a profile now carries your profile name, so the team knows who it\'s from. Without a profile it\'s still sent, just without a name.',
     de: 'Feedback, das du mit Profil sendest, trägt jetzt deinen Profilnamen, damit das Team weiß, von wem es kommt. Ohne Profil wird es weiter gesendet, nur ohne Namen.',

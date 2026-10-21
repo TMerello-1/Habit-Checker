@@ -2,7 +2,7 @@
 // through commit(), which saves and re-renders the whole view (the app is small
 // enough that diffing isn't worth it).
 
-import { backupHash, backupText, decryptBackup, encryptBackup } from './backup.js';
+import { backupText, decryptBackup, encryptBackup } from './backup.js';
 import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { FRIENDS_SERVER } from './config.js';
@@ -16,6 +16,7 @@ import { initials, profileName, randomName } from './names.js';
 import { enablePush, pushActive, pushEndpoint, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
 import { empty, load, loadPrefs, loadSeenVersion, save, savePrefs, saveSeenVersion } from './store.js';
+import { mergeStates, sameData, stamp } from './sync.js';
 import { exportData, parseImport } from './transfer.js';
 
 let state = load();
@@ -31,7 +32,12 @@ for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeh
 for (const el of document.querySelectorAll('[data-i18n-aria-label]')) el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
 for (const el of document.querySelectorAll('[data-i18n-day]')) el.textContent = t('weekdays')[el.dataset.i18nDay];
 
+// The state as last committed, so commit() can stamp what changed (sync.js).
+let committed = structuredClone(state);
+
 function commit() {
+  state = stamp(committed, state, new Date().toISOString());
+  committed = structuredClone(state);
   save(state);
   syncPush(state);
   render();
@@ -790,44 +796,120 @@ function sendStatsSoon(delay = 1500) {
   }, delay);
 }
 
-// Habit backup (see backup.js): while signed in, the habits, their history and the
-// nicknames are kept encrypted on the friends server, shortly after each change.
-// `friends.backedUp` fingerprints the last upload, so an unchanged device sends nothing,
-// and `friends.backedUpAt` is when it landed (shown in My profile).
+// Habit backup and sync (see backup.js and sync.js): while signed in, the habits, their
+// history and the nicknames are kept encrypted on the friends server. Each sync fetches
+// that copy, merges it with this device's and stores the result, so every device signed in
+// to the profile ends up with the check-ins of all of them. It runs shortly after each
+// change, on opening, when the app comes back to the screen and every minute while open.
+// `friends.backedUpAt` is when the stored copy last changed (shown in My profile).
 let backupTimer;
 function backupSoon(delay = 3000) {
   if (!friends.me || !friends.backup) return;
   clearTimeout(backupTimer);
-  backupTimer = setTimeout(() => backUp(), delay);
+  backupTimer = setTimeout(() => syncNow(), delay);
 }
 
-// `force` is "Back up now" in My profile: it uploads even when nothing changed, and says how it went.
-async function backUp(force = false) {
-  const code = friends.code;
-  const text = backupText(state, friends.nicknames);
-  const hash = await backupHash(text);
-  if (hash === friends.backedUp && !force) return;
-  await friendsCall(async () => {
-    const { updatedAt } = await uploadBackup(code, await encryptBackup(code, text));
-    if (code !== friends.code) return;
-    friends.backedUp = hash;
+// Takes over a state from the server without stamping it as this device's own change.
+function adopt(next) {
+  state = { ...next, notified: state.notified };
+  committed = structuredClone(state);
+  save(state);
+  syncPush(state);
+  render();
+  sendStatsSoon();
+}
+
+// Returns true once this device and the server hold the same habits, false if the
+// server couldn't be reached. Calls made while one runs are folded into a rerun.
+let syncing = null;
+let syncAgain = false;
+async function syncNow() {
+  if (!friends.me || !friends.backup) return false;
+  if (syncing) {
+    syncAgain = true;
+    return syncing;
+  }
+  syncing = (async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = friends.code;
+      let saved = null;
+      try {
+        saved = await fetchBackup(code);
+      } catch (err) {
+        if (!(err instanceof ServerError)) throw err;
+        if (err.status === 401) {
+          await friendsCall(async () => { throw err; }); // signs out: the profile is gone
+          return false;
+        }
+        if (err.status !== 404) return false;
+      }
+      let theirs = null;
+      try {
+        if (saved) theirs = await decryptBackup(code, saved.data);
+      } catch {
+        // Damaged or unreadable: this device's copy replaces it.
+      }
+      if (code !== friends.code || !friends.backup) return false;
+      if (theirs) {
+        const merged = mergeStates(state, theirs);
+        if (!sameData(merged, state)) adopt(merged);
+        const nicknames = { ...theirs.nicknames, ...friends.nicknames };
+        if (JSON.stringify(nicknames) !== JSON.stringify(friends.nicknames)) {
+          friends.nicknames = nicknames;
+          saveFriends(friends);
+          renderFriends();
+        }
+      }
+      const text = backupText(state, friends.nicknames);
+      if (theirs && sameData(state, theirs) && JSON.stringify(theirs.nicknames) === JSON.stringify(friends.nicknames)) {
+        return markSynced(saved.updatedAt);
+      }
+      try {
+        const { updatedAt } = await uploadBackup(code, await encryptBackup(code, text), saved ? saved.updatedAt : null);
+        if (code === friends.code) return markSynced(updatedAt);
+        return false;
+      } catch (err) {
+        if (!(err instanceof ServerError)) throw err;
+        if (err.status === 409) continue; // another device was quicker: merge with its copy
+        if (err.status !== 0) await friendsCall(async () => { throw err; });
+        return false;
+      }
+    }
+    return false;
+  })();
+  try {
+    return await syncing;
+  } finally {
+    syncing = null;
+    if (syncAgain) {
+      syncAgain = false;
+      backupSoon(0);
+    }
+  }
+}
+
+function markSynced(updatedAt) {
+  if (friends.backedUpAt !== updatedAt) {
     friends.backedUpAt = updatedAt;
-    commitFriends();
-    if (force) toast(t('backedUp'));
-  }, { 0: force ? 'offline' : null });
+    saveFriends(friends);
+    renderFriends();
+  }
+  return true;
 }
 
+// "Back up now" in My profile syncs straight away and says how it went.
 $('#backup-now').onclick = (e) =>
   busy(e.currentTarget, async () => {
     clearTimeout(backupTimer);
-    // Before the restore choice is made, the backup is offered back first, never overwritten.
+    // Before the first choice is made, the backup is offered first, never overwritten.
     if (!friends.backup) return checkBackup(true);
-    await backUp(true);
+    toast(t((await syncNow()) ? 'backedUp' : 'offline'));
   });
 
-// After signing in, decides whose habits count: the backup's when this device has none,
-// or the person's pick when both have some. Until then nothing is uploaded, so signing
-// in can't overwrite a backup before it's offered back. Offline, it tries again next start.
+// After signing in, decides how this device joins the profile's habits: it takes the
+// backup when it has no habits of its own, and asks when both have some (combine them, or
+// use only the backup's). Until then nothing is uploaded, so signing in can't overwrite a
+// backup before it's offered. Offline, it tries again next start.
 async function checkBackup(manual = false) {
   if (!friends.me || friends.backup) return;
   const code = friends.code;
@@ -844,9 +926,10 @@ async function checkBackup(manual = false) {
     // Damaged or unreadable: this device's habits replace it.
   }
   if (code !== friends.code) return;
-  const differs = backup && backupText({ ...state, ...backup }) !== backupText(state);
-  if (differs && backup.habits.length && state.habits.length) return offerBackup(backup, saved.updatedAt);
-  if (differs && backup.habits.length) useBackup(backup);
+  if (backup && backup.habits.length && state.habits.length && !sameData(mergeStates(state, backup), state)) {
+    return offerBackup(backup, saved.updatedAt);
+  }
+  if (backup && backup.habits.length && !state.habits.length) useBackup(backup);
   else if (backup) friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
   backupDecided();
 }
@@ -860,18 +943,25 @@ function offerBackup(backup, updatedAt) {
     // Closed without a choice: asked again next time.
     if (!dlg.returnValue) return;
     if (dlg.returnValue === 'use') useBackup(backup);
-    else friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+    else if (dlg.returnValue === 'combine') {
+      adopt(mergeStates(state, backup));
+      friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+    }
     backupDecided();
   };
   dlg.showModal();
 }
 
 function useBackup(backup) {
-  state = { ...state, habits: backup.habits, completions: backup.completions, notified: {} };
-  friends.nicknames = { ...backup.nicknames, ...friends.nicknames };
+  const { nicknames, ...rest } = backup;
+  // Habits only this device had count as deleted, so the other devices drop them too.
+  const now = new Date().toISOString();
+  const deleted = { ...rest.sync?.deleted };
+  for (const h of state.habits) if (!rest.habits.some((x) => x.id === h.id)) deleted[h.id] = now;
+  adopt({ ...rest, sync: { ...rest.sync, deleted } });
   resetForm();
-  commit();
-  toast(t('backupRestored', { n: backup.habits.length }));
+  friends.nicknames = { ...nicknames, ...friends.nicknames };
+  toast(t('backupRestored', { n: rest.habits.length }));
 }
 
 function backupDecided() {
@@ -1030,7 +1120,7 @@ $('#sign-out').onclick = (e) => {
     friendsCall(async () => {
       clearTimeout(backupTimer);
       clearTimeout(statsTimer);
-      await uploadBackup(friends.code, await encryptBackup(friends.code, backupText(state, friends.nicknames)));
+      if (!(await syncNow())) throw new ServerError(0, 'not synced');
       friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '', backedUpAt: '' };
       state = empty();
       $('#invite-box').hidden = true;
@@ -1525,6 +1615,9 @@ window.addEventListener('focus', () => {
   refreshMyFeedback();
 });
 setInterval(checkReminders, 30_000);
+// Picks up check-ins from the profile's other devices (see syncNow).
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && backupSoon(0));
+setInterval(() => document.visibilityState === 'visible' && backupSoon(0), 60_000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
@@ -1534,5 +1627,6 @@ refreshFriends();
 refreshMyFeedback(true);
 sendStatsSoon();
 checkBackup();
+backupSoon(0);
 checkReminders();
 enablePush(state).then(syncAdminDevice);

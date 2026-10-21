@@ -1,6 +1,7 @@
 // Habit backup, locked with the recovery code. While a profile is signed in, app.js keeps a
 // copy of the habits, their history and the friend nicknames on the friends server, so
-// signing in with the code on a new phone brings them back. The copy is encrypted here
+// signing in with the code on a new phone brings them back, and every device signed in to
+// the profile syncs through it (see sync.js). The copy is encrypted here
 // before it leaves the device (AES-GCM, with a key derived from the code by HKDF), and the
 // server keeps neither the code nor the key, so its database can't be read on its own.
 // Pure apart from WebCrypto, so it is tested under Node.
@@ -29,15 +30,12 @@ function toBase64(bytes) {
 
 const fromBase64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 
-// The text the backup holds: the "Move your data" export plus the nicknames.
-export function backupText(state, nicknames = {}) {
-  return JSON.stringify({ ...JSON.parse(exportData(state)), nicknames });
-}
+const isMap = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-// A short fingerprint of a backup's text, so an unchanged one isn't uploaded again.
-export async function backupHash(text) {
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return toBase64(new Uint8Array(hash));
+// The text the backup holds: the "Move your data" export plus the sync stamps (sync.js)
+// and the nicknames.
+export function backupText(state, nicknames = {}) {
+  return JSON.stringify({ ...JSON.parse(exportData(state)), sync: state.sync || {}, nicknames });
 }
 
 // `code` is the normalized recovery code. Returns base64 of the IV followed by the ciphertext.
@@ -50,13 +48,12 @@ export async function encryptBackup(code, text) {
   return toBase64(out);
 }
 
-// Returns { habits, completions, nicknames }. Throws if the code doesn't open it or the
+// Returns { version, habits, completions, sync, nicknames }. Throws if the code doesn't open it or the
 // contents are damaged.
 export async function decryptBackup(code, data) {
   const bytes = fromBase64(data);
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12) }, await backupKey(code), bytes.subarray(12));
   const text = new TextDecoder().decode(plain);
-  const { nicknames } = JSON.parse(text);
-  const isMap = typeof nicknames === 'object' && nicknames !== null && !Array.isArray(nicknames);
-  return { ...parseImport(text), nicknames: isMap ? nicknames : {} };
+  const { nicknames, sync } = JSON.parse(text);
+  return { version: 1, ...parseImport(text), sync: isMap(sync) ? sync : {}, nicknames: isMap(nicknames) ? nicknames : {} };
 }
