@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = 'habit-checker:v1';
 
-const empty = () => ({ version: 1, habits: [], completions: {}, notified: {} });
+export const empty = () => ({ version: 1, habits: [], completions: {}, notified: {} });
 
 export function load() {
   try {

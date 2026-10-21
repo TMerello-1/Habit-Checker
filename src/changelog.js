@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 22, date: '2026-10-21',
+    en: 'My profile has "Sign out and clear this phone": it backs up, then removes your habits and profile from this phone only. Your recovery code brings everything back.',
+    de: 'Mein Profil hat „Abmelden und Handy leeren“: Es sichert und entfernt dann deine Gewohnheiten und dein Profil nur von diesem Handy. Dein Wiederherstellungscode holt alles zurück.',
+  },
+  {
     v: 21, date: '2026-10-19',
     en: 'Switching on "Pile up missed rounds" now starts the pile at 0 that day, and earlier days keep their streak badges. The button to take back a round is now ↶.',
     de: 'Wenn du „Verpasste Runden stapeln“ einschaltest, startet der Stapel jetzt an dem Tag bei 0, und frühere Tage behalten ihre Serien-Abzeichen. Der Knopf, um eine Runde zurückzunehmen, ist jetzt ↶.',

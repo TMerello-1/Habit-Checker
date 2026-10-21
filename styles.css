@@ -409,7 +409,7 @@ button[type=submit], #copy-data, #import-btn, #feedback-send {
 .primary:disabled, .secondary:disabled { opacity: 0.6; cursor: wait; }
 .link { font: inherit; font-size: 14px; background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; justify-self: start; }
 .link.danger { color: #dc2626; }
-.danger-zone { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.danger-zone { display: grid; gap: 12px; justify-items: start; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
 .link.danger.armed { color: #dc2626; font-weight: 600; }
 .code-box { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; }
 .code-box code { font: 600 20px/1.3 ui-monospace, monospace; letter-spacing: 1px; user-select: all; word-break: break-all; }

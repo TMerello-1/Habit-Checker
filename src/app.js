@@ -15,7 +15,7 @@ import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
 import { enablePush, pushActive, pushEndpoint, syncPush } from './push.js';
 import { dismissReminder, dueReminders, notify, requestPermission, setBadge } from './reminders.js';
-import { load, loadPrefs, loadSeenVersion, save, savePrefs, saveSeenVersion } from './store.js';
+import { empty, load, loadPrefs, loadSeenVersion, save, savePrefs, saveSeenVersion } from './store.js';
 import { exportData, parseImport } from './transfer.js';
 
 let state = load();
@@ -1006,6 +1006,41 @@ $('#add-ok').onclick = (e) =>
 $('#show-add').onclick = () => {
   $('#add-row').hidden = !$('#add-row').hidden;
   if (!$('#add-row').hidden) $('#add-code').focus();
+};
+
+// Signing out clears this phone but keeps the profile and its backup on the server, so the
+// recovery code brings everything back. It backs up first and stops if that fails, so no
+// habits are lost. Before the restore choice is made, this phone's habits may not be in the
+// backup, so it asks for that choice first.
+$('#sign-out').onclick = (e) => {
+  const btn = e.currentTarget;
+  if (!friends.backup) return checkBackup(true);
+  if (!btn.classList.contains('armed')) {
+    btn.classList.add('armed');
+    btn.textContent = t('signOutConfirm');
+    setTimeout(() => {
+      btn.classList.remove('armed');
+      btn.textContent = t('signOut');
+    }, 3000);
+    return;
+  }
+  btn.classList.remove('armed');
+  btn.textContent = t('signOut');
+  busy(btn, () =>
+    friendsCall(async () => {
+      clearTimeout(backupTimer);
+      clearTimeout(statsTimer);
+      await uploadBackup(friends.code, await encryptBackup(friends.code, backupText(state, friends.nicknames)));
+      friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '', backedUpAt: '' };
+      state = empty();
+      $('#invite-box').hidden = true;
+      $('#profile-dialog').close();
+      resetForm();
+      commit();
+      commitFriends();
+      toast(t('signedOut'));
+    }, { 0: 'signOutOffline' }),
+  );
 };
 
 $('#leave').onclick = (e) => {
