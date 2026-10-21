@@ -1120,13 +1120,16 @@ $('#sign-out').onclick = (e) => {
     friendsCall(async () => {
       clearTimeout(backupTimer);
       clearTimeout(statsTimer);
+      while (syncing) await syncing.catch(() => {}); // a sync already running may predate the latest change
       if (!(await syncNow())) throw new ServerError(0, 'not synced');
       friends = { code: '', me: null, admin: false, friends: [], nicknames: {}, sent: '', backup: false, backedUp: '', backedUpAt: '' };
-      state = empty();
       $('#invite-box').hidden = true;
       $('#profile-dialog').close();
       resetForm();
-      commit();
+      // Not commit(): that would stamp every habit as deleted, and signing in again with
+      // "Combine" would then delete them from the backup.
+      state = empty();
+      adopt(state);
       commitFriends();
       toast(t('signedOut'));
     }, { 0: 'signOutOffline' }),

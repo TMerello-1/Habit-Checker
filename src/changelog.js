@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 25, date: '2026-10-21',
+    en: 'Fixed: after "Sign out and clear this phone", signing in again and choosing "Combine" could remove your backed-up habits.',
+    de: 'Behoben: Nach „Abmelden und Handy leeren“ konnte erneutes Anmelden mit „Zusammenführen“ deine gesicherten Gewohnheiten entfernen.',
+  },
+  {
     v: 24, date: '2026-10-21', notable: true,
     en: 'Your habits now sync between devices: sign in with the same recovery code on two phones (or phone and browser), and new habits, edits and check-ins from both show up on each.',
     de: 'Deine Gewohnheiten synchronisieren sich jetzt zwischen Geräten: Melde dich mit demselben Wiederherstellungscode auf zwei Handys (oder Handy und Browser) an, und neue Gewohnheiten, Änderungen und Häkchen von beiden erscheinen auf jedem.',
