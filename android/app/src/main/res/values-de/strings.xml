@@ -22,4 +22,7 @@
     <string name="update_later">Später</string>
     <string name="update_downloading">Update wird heruntergeladen…</string>
     <string name="update_failed">Das Update konnte nicht geladen werden. Versuch es später noch mal.</string>
+    <string name="load_error_title">Habit Checker lässt sich gerade nicht laden</string>
+    <string name="load_error_message">Die App erreicht ihre Webseite nicht. Prüf deine Verbindung oder versuch es in ein paar Minuten nochmal. Deine Gewohnheiten sind auf diesem Handy sicher.</string>
+    <string name="load_error_retry">Nochmal versuchen</string>
 </resources>
