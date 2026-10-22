@@ -1648,7 +1648,28 @@ setInterval(checkReminders, 30_000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && backupSoon(0));
 setInterval(() => document.visibilityState === 'visible' && backupSoon(0), 60_000);
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Updates: the service worker serves the cached version first, so an open page would keep
+// running old code until it's opened again. It looks for a new version each time the page
+// comes back into view, and once that takes over, the page reloads itself, right away
+// unless something is being typed or a sheet is open, else the next time it's hidden.
+if ('serviceWorker' in navigator) {
+  // The first worker taking over a page that had none isn't an update.
+  let controlled = Boolean(navigator.serviceWorker.controller);
+  let reloadPending = false;
+  const busyHere = () =>
+    document.querySelector('dialog[open]') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!controlled) return void (controlled = true);
+    if (reloadPending) return;
+    reloadPending = true;
+    if (document.visibilityState === 'hidden' || !busyHere()) location.reload();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && reloadPending) location.reload();
+    if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+  });
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 render();
 renderFriends();
 renderMyFeedback();

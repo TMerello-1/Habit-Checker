@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 32, date: '2026-10-22',
+    en: 'Updates now arrive while the app is open: it checks whenever you come back to it and reloads itself with the new version.',
+    de: 'Updates kommen jetzt auch bei offener App an: Sie schaut nach, wenn du zurückkommst, und lädt sich mit der neuen Version neu.',
+  },
+  {
     v: 31, date: '2026-10-22',
     en: 'More feedback you send now joins your open chat instead of starting a new one, so the team sees one conversation per person.',
     de: 'Weiteres Feedback landet jetzt in deinem offenen Chat statt in einem neuen, damit das Team ein Gespräch pro Person sieht.',
