@@ -51,3 +51,4 @@ Reminders come from two places. While the app is open, `app.js` polls `dueRemind
 
 - Adding, renaming or removing any shipped file means updating the `ASSETS` list in `sw.js`.
 - Any change to a shipped file requires bumping `CACHE` in `sw.js`. The worker is cache-first, so without a bump installed users keep the old version.
+- Any user-visible change also updates the Help dialog (`helpTopics` in `src/i18n.js`, English and German) so it explains every current feature, and adds a `src/changelog.js` entry. Tom asked for this on every change.
