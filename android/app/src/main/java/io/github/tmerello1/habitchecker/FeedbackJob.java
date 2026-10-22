@@ -102,7 +102,7 @@ public class FeedbackJob extends JobService {
             return;
         }
         if (js.getPendingJob(JOB_ID) != null) return;
-        js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, FeedbackJob.class))
+        schedule(js, new JobInfo.Builder(JOB_ID, new ComponentName(ctx, FeedbackJob.class))
                 .setPeriodic(15 * 60 * 1000L)
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setPersisted(true)
@@ -115,10 +115,20 @@ public class FeedbackJob extends JobService {
      */
     static void checkNow(Context ctx) {
         if (Store.adminCode(ctx).isEmpty() && openThreads(ctx).length() == 0) return;
-        ctx.getSystemService(JobScheduler.class).schedule(
+        schedule(ctx.getSystemService(JobScheduler.class),
                 new JobInfo.Builder(NOW_JOB_ID, new ComponentName(ctx, FeedbackJob.class))
                         .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                         .build());
+    }
+
+    // A job the system refuses (it throws, e.g. over a missing permission) must never take
+    // the app down with it: feedback checks are a nice-to-have.
+    private static void schedule(JobScheduler js, JobInfo job) {
+        try {
+            js.schedule(job);
+        } catch (RuntimeException e) {
+            android.util.Log.w("FeedbackJob", "couldn't schedule the feedback check", e);
+        }
     }
 
     private static JSONArray openThreads(Context ctx) {

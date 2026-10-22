@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 30, date: '2026-10-22',
+    en: 'Android: fixed feedback notifications and the widget\'s 📨, which never showed on Android 14 and newer.',
+    de: 'Android: Feedback-Benachrichtigungen und das 📨 im Widget repariert, die ab Android 14 nie erschienen.',
+  },
+  {
     v: 29, date: '2026-10-22',
     en: 'Android: the app checks for feedback and replies when you open or close it, so the widget\'s 📨 shows up sooner.',
     de: 'Android: Die App schaut beim Öffnen und Schließen nach Feedback und Antworten, damit das 📨 im Widget schneller erscheint.',
