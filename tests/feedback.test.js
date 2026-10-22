@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addThread, feedbackStatus, filterFeedback, markSeen, MAX_THREADS, newestFromSenders, parseThreads, statusCounts, unread, unreadTotal, updateThread } from '../src/feedback.js';
+import { addThread, chatFor, feedbackStatus, filterFeedback, markSeen, MAX_THREADS, newestFromSenders, parseThreads, statusCounts, unread, unreadTotal, updateThread } from '../src/feedback.js';
 
 const sent = (id, createdAt = '2026-10-19T10:00:00.000Z') => ({ id, token: 'T'.repeat(20), text: `text ${id}`, createdAt });
 const admin = (text) => ({ fromAdmin: true, text, createdAt: '2026-10-19T11:00:00.000Z' });
@@ -69,4 +69,13 @@ test("the inbox's newest sender message counts feedback and senders' answers, no
     { createdAt: '2026-10-03T00:00:00Z', messages: [{ fromAdmin: false, text: 'answer', createdAt: '2026-10-05T00:00:00Z' }] },
   ];
   assert.equal(newestFromSenders(list), '2026-10-05T00:00:00Z');
+});
+
+test('new feedback joins the newest open chat sent as the same profile', () => {
+  let threads = addThread([], { id: 'a', token: 't', text: 'old', createdAt: '2026-10-01T00:00:00Z' });
+  threads = addThread(threads, { id: 'b', token: 't', text: 'named', createdAt: '2026-10-02T00:00:00Z', profile: 'p1' });
+  assert.equal(chatFor(threads).id, 'a');
+  assert.equal(chatFor(threads, 'p1').id, 'b');
+  assert.equal(chatFor(threads, 'p2'), null);
+  assert.equal(chatFor(updateThread(threads, 'a', null)), null);
 });

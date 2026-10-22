@@ -7,7 +7,7 @@ import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
-import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
+import { addThread, chatFor, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
 import { bestBadges, currentStreak, editHabit, isDone, isOpen, levelProgress, missedYesterday, onToday, openToday, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
@@ -1207,13 +1207,28 @@ $('#feedback-send').onclick = (e) => {
   if (!text) return $('#feedback-text').focus();
   busy(e.currentTarget, () =>
     friendsCall(async () => {
+      // More feedback joins this sender's open chat, so the inbox has one row per sender.
+      const chat = chatFor(myFeedback, friends.me?.id || '');
+      if (chat) {
+        try {
+          await answerThread(chat.id, chat.token, text);
+          $('#feedback-text').value = '';
+          toast(t('feedbackThanks'));
+          await refreshMyFeedback(true);
+          return;
+        } catch (err) {
+          // Cleared by the admin meanwhile: start a new chat instead.
+          if (!(err instanceof ServerError) || err.status !== 404) throw err;
+          myFeedback = updateThread(myFeedback, chat.id, null);
+        }
+      }
       const endpoint = await pushEndpoint().catch(() => null);
       const { id, token } = await sendFeedback(friends.code, {
         text, lang, platform: androidApp ? 'android' : 'web', endpoint: endpoint || undefined, titles: feedbackTitles(),
       });
       $('#feedback-text').value = '';
       if (id && token) {
-        myFeedback = addThread(myFeedback, { id, token, text, createdAt: new Date().toISOString() });
+        myFeedback = addThread(myFeedback, { id, token, text, createdAt: new Date().toISOString(), profile: friends.me?.id || '' });
         myFeedback[0].endpoint = endpoint || '';
         saveMyFeedback();
       }
