@@ -23,9 +23,16 @@ export const unreadTotal = (threads) => threads.reduce((n, t) => n + unread(t), 
 export const markSeen = (threads) => threads.map((t) => ({ ...t, seenAdmin: adminCount(t), seenReaction: t.reaction }));
 
 // A just-sent feedback becomes a thread; the oldest ones drop off past MAX_THREADS.
-export function addThread(threads, { id, token, text, createdAt }) {
-  const thread = { id, token, text, createdAt, reaction: '', messages: [], seenAdmin: 0, seenReaction: '', closed: false };
+// `profile` is the id of the profile it was sent as ('' without one).
+export function addThread(threads, { id, token, text, createdAt, profile = '' }) {
+  const thread = { id, token, text, createdAt, profile, reaction: '', messages: [], seenAdmin: 0, seenReaction: '', closed: false };
   return [thread, ...threads].slice(0, MAX_THREADS);
+}
+
+// The chat new feedback joins, so each sender is one conversation: the newest open thread
+// sent as the same profile (or none), else null for a new one.
+export function chatFor(threads, profile = '') {
+  return threads.find((t) => !t.closed && (t.profile || '') === profile) || null;
 }
 
 // Takes in what the server said about a thread; null means it's gone (the admin cleared
