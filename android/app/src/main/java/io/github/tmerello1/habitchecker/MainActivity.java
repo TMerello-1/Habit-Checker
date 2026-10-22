@@ -9,11 +9,14 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Html;
 import android.view.DisplayCutout;
 import android.view.RoundedCorner;
 import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -48,6 +51,8 @@ public class MainActivity extends Activity {
             + "})();";
 
     private WebView web;
+    // The page that didn't load, opened again by the error page's Retry button.
+    private String failedUrl = START_URL;
     // The page's --app-inset-* values for the current screen, see insetsJs().
     private String insetsJs = "";
 
@@ -72,6 +77,18 @@ public class MainActivity extends Activity {
                 // Links off the app open in the browser, where the bridge isn't exposed.
                 startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl()));
                 return true;
+            }
+
+            // The site is normally served from the page's offline copy, so this only shows
+            // when there's none yet (first start, cleared data) and the site can't be reached.
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) showLoadError(request.getUrl().toString());
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request.isForMainFrame() && response.getStatusCode() >= 500) showLoadError(request.getUrl().toString());
             }
 
             @Override
@@ -174,6 +191,21 @@ public class MainActivity extends Activity {
         return js.append(" })();").toString();
     }
 
+    // A page of our own instead of WebView's "Webpage not available", with a Retry button.
+    private void showLoadError(String url) {
+        failedUrl = url;
+        String html = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
+                + "<style>:root{color-scheme:light dark}body{font-family:sans-serif;margin:0;min-height:100vh;"
+                + "display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}"
+                + "h1{font-size:1.3em}p{max-width:22em;line-height:1.4;opacity:.8}"
+                + "button{font:inherit;font-weight:bold;padding:12px 32px;border:0;border-radius:24px;background:#4f46e5;color:#fff}</style>"
+                + "<div style='font-size:48px'>☁️</div>"
+                + "<h1>" + Html.escapeHtml(getString(R.string.load_error_title)) + "</h1>"
+                + "<p>" + Html.escapeHtml(getString(R.string.load_error_message)) + "</p>"
+                + "<button onclick='HabitCheckerBridge.retry()'>" + Html.escapeHtml(getString(R.string.load_error_retry)) + "</button>";
+        web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
@@ -193,6 +225,14 @@ public class MainActivity extends Activity {
             if (json == null || json.isEmpty() || json.equals(Store.state(MainActivity.this))) return;
             Store.saveState(MainActivity.this, json);
             Reminders.update(getApplicationContext());
+        }
+
+        @JavascriptInterface
+        public void retry() {
+            runOnUiThread(() -> {
+                web.clearHistory();
+                web.loadUrl(failedUrl);
+            });
         }
 
         @JavascriptInterface

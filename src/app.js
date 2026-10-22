@@ -747,6 +747,11 @@ function commitFriends() {
   backupSoon();
 }
 
+// A failed call (status 0) blames the connection only when the device knows it's offline;
+// otherwise the server is down, and the message says so instead.
+const SERVER_DOWN = { offline: 'serverDown', feedbackOffline: 'feedbackServerDown', signOutOffline: 'signOutServerDown' };
+const unreachable = (key) => (navigator.onLine === false ? key : SERVER_DOWN[key] || key);
+
 // Runs a server call, turning failures into a toast. `messages` maps HTTP statuses (0 for
 // no connection) to string keys; a 401 on a signed-in call means the profile was deleted elsewhere.
 async function friendsCall(fn, messages = {}) {
@@ -755,13 +760,13 @@ async function friendsCall(fn, messages = {}) {
   } catch (err) {
     if (!(err instanceof ServerError)) throw err;
     // A null message keeps a background call quiet, e.g. a refresh while offline.
-    if (err.status in messages) return messages[err.status] && toast(t(messages[err.status]));
+    if (err.status in messages) return messages[err.status] && toast(t(err.status === 0 ? unreachable(messages[0]) : messages[err.status]));
     if (err.status === 401 && friends.me) {
       friends = { ...friends, code: '', me: null, admin: false, adminDevice: '', friends: [], sent: '', backup: false, backedUp: '', backedUpAt: '' };
       commitFriends();
       return toast(t('profileGone'));
     }
-    toast(t(err.status === 0 ? 'offline' : 'serverError'));
+    toast(t(err.status === 0 ? unreachable('offline') : 'serverError'));
   }
 }
 
@@ -903,7 +908,7 @@ $('#backup-now').onclick = (e) =>
     clearTimeout(backupTimer);
     // Before the first choice is made, the backup is offered first, never overwritten.
     if (!friends.backup) return checkBackup(true);
-    toast(t((await syncNow()) ? 'backedUp' : 'offline'));
+    toast(t((await syncNow()) ? 'backedUp' : unreachable('offline')));
   });
 
 // After signing in, decides how this device joins the profile's habits: it takes the
@@ -917,7 +922,7 @@ async function checkBackup(manual = false) {
   try {
     saved = await fetchBackup(code);
   } catch (err) {
-    if (!(err instanceof ServerError) || err.status !== 404) return manual && toast(t('offline'));
+    if (!(err instanceof ServerError) || err.status !== 404) return manual && toast(t(unreachable('offline')));
   }
   let backup = null;
   try {
