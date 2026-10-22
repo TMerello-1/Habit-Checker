@@ -7,7 +7,7 @@ import { bannerChange, changesByDate, LATEST } from './changelog.js';
 import { formatCode, INVITE_LENGTH, isCode, normalizeCode, RECOVERY_LENGTH } from './codes.js';
 import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
-import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
+import { addThread, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
 import { bestBadges, currentStreak, editHabit, isDone, isOpen, levelProgress, missedYesterday, onToday, openToday, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
@@ -1358,6 +1358,12 @@ async function loadInbox() {
     const { feedback } = await fetchFeedback(friends.code);
     inbox = feedback.map((f) => ({ ...f, from: senderLabel(f) }));
     renderInbox();
+    // Everything in it counts as seen, which takes 📨 off the Android widget.
+    const newest = newestFromSenders(inbox);
+    if (newest > (friends.inboxSeen || '')) {
+      friends.inboxSeen = newest;
+      saveFriends(friends);
+    }
   });
 }
 

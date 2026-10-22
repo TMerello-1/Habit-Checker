@@ -1,6 +1,7 @@
 <resources>
     <string name="widget_name">Offene Gewohnheiten</string>
     <string name="widget_title">Heute</string>
+    <string name="widget_mail">Ungelesenes Feedback</string>
     <string name="widget_first_open">Öffne Habit Checker einmal, um deine Gewohnheiten zu laden.</string>
     <string name="widget_nothing_today">Heute steht nichts an.</string>
     <string name="widget_all_done">Heute alles erledigt 🎉</string>

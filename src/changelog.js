@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 28, date: '2026-10-22',
+    en: 'Android widget: a 📨 in its top bar shows when a reply to your feedback is waiting (or, for the team, new feedback). Tap it to open it.',
+    de: 'Android-Widget: Ein 📨 oben im Widget zeigt, dass eine Antwort auf dein Feedback wartet (oder fürs Team neues Feedback). Tipp drauf, um sie zu öffnen.',
+  },
+  {
     v: 27, date: '2026-10-22',
     en: 'Help is up to date: new topics on your profile, backup and sync, feedback, and installing the app or the Android app.',
     de: 'Die Hilfe ist auf dem neuesten Stand: neue Themen zu Profil, Sicherung und Sync, Feedback und zum Installieren der App oder der Android-App.',
