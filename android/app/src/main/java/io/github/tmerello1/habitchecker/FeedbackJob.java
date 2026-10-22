@@ -32,6 +32,7 @@ public class FeedbackJob extends JobService {
     // Keep in step with FRIENDS_SERVER in src/config.js.
     private static final String SERVER = "https://habit-checker-friends.habits-f6268550.workers.dev";
     private static final int JOB_ID = 1;
+    private static final int NOW_JOB_ID = 2;
     private static final String CHANNEL = "feedback";
 
     /** Takes in the friends data the web app just saved: is an admin signed in here? */
@@ -106,6 +107,18 @@ public class FeedbackJob extends JobService {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setPersisted(true)
                 .build());
+    }
+
+    /**
+     * One check as soon as there's a network, besides the periodic one: the app calls this
+     * when it opens and closes, so the widget's 📨 doesn't wait up to 15 minutes.
+     */
+    static void checkNow(Context ctx) {
+        if (Store.adminCode(ctx).isEmpty() && openThreads(ctx).length() == 0) return;
+        ctx.getSystemService(JobScheduler.class).schedule(
+                new JobInfo.Builder(NOW_JOB_ID, new ComponentName(ctx, FeedbackJob.class))
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .build());
     }
 
     private static JSONArray openThreads(Context ctx) {

@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 29, date: '2026-10-22',
+    en: 'Android: the app checks for feedback and replies when you open or close it, so the widget\'s 📨 shows up sooner.',
+    de: 'Android: Die App schaut beim Öffnen und Schließen nach Feedback und Antworten, damit das 📨 im Widget schneller erscheint.',
+  },
+  {
     v: 28, date: '2026-10-22',
     en: 'Android widget: a 📨 in its top bar shows when a reply to your feedback is waiting (or, for the team, new feedback). Tap it to open it.',
     de: 'Android-Widget: Ein 📨 oben im Widget zeigt, dass eine Antwort auf dein Feedback wartet (oder fürs Team neues Feedback). Tipp drauf, um sie zu öffnen.',
