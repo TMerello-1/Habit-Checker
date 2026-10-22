@@ -81,6 +81,18 @@ export function filterFeedback(list, filter = {}) {
   return out.sort((a, b) => (filter.oldestFirst ? 1 : -1) * a.createdAt.localeCompare(b.createdAt));
 }
 
+// When the newest thing a sender wrote in the inbox (feedback or an answer) arrived: what the
+// admin has seen once the inbox is open. The Android widget shows 📨 for anything newer.
+export function newestFromSenders(list) {
+  let newest = '';
+  for (const f of list) {
+    for (const at of [f.createdAt, ...(f.messages || []).filter((m) => !m.fromAdmin).map((m) => m.createdAt)]) {
+      if (at > newest) newest = at;
+    }
+  }
+  return newest;
+}
+
 // How many of each status, for the filter chips.
 export function statusCounts(list) {
   const counts = { all: list.length, new: 0, waiting: 0, answered: 0 };

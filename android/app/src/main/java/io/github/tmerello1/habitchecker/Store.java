@@ -44,6 +44,15 @@ final class Store {
         prefs(ctx).edit().putString("feedbackSeen", createdAt).apply();
     }
 
+    /** The newest sender message the admin saw in the web app's inbox (friends.inboxSeen). */
+    static String inboxSeen(Context ctx) {
+        return prefs(ctx).getString("inboxSeen", "");
+    }
+
+    static void setInboxSeen(Context ctx, String createdAt) {
+        prefs(ctx).edit().putString("inboxSeen", createdAt).apply();
+    }
+
     /** The feedback threads the web app keeps (habit-checker:feedback), as JSON. */
     static String threads(Context ctx) {
         return prefs(ctx).getString("threads", "[]");

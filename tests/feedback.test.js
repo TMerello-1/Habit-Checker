@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addThread, feedbackStatus, filterFeedback, markSeen, MAX_THREADS, parseThreads, statusCounts, unread, unreadTotal, updateThread } from '../src/feedback.js';
+import { addThread, feedbackStatus, filterFeedback, markSeen, MAX_THREADS, newestFromSenders, parseThreads, statusCounts, unread, unreadTotal, updateThread } from '../src/feedback.js';
 
 const sent = (id, createdAt = '2026-10-19T10:00:00.000Z') => ({ id, token: 'T'.repeat(20), text: `text ${id}`, createdAt });
 const admin = (text) => ({ fromAdmin: true, text, createdAt: '2026-10-19T11:00:00.000Z' });
@@ -60,4 +60,13 @@ test('the inbox filters by status, platform, language, sender and text, newest f
   assert.deepEqual(ids({ sender: 'named' }), [2]);
   assert.deepEqual(ids({ sender: 'none' }), [3, 1]);
   assert.deepEqual(statusCounts(list), { all: 3, new: 1, waiting: 1, answered: 1 });
+});
+
+test("the inbox's newest sender message counts feedback and senders' answers, not admin replies", () => {
+  assert.equal(newestFromSenders([]), '');
+  const list = [
+    { createdAt: '2026-10-01T00:00:00Z', messages: [{ ...admin('later reply'), createdAt: '2026-10-09T00:00:00Z' }] },
+    { createdAt: '2026-10-03T00:00:00Z', messages: [{ fromAdmin: false, text: 'answer', createdAt: '2026-10-05T00:00:00Z' }] },
+  ];
+  assert.equal(newestFromSenders(list), '2026-10-05T00:00:00Z');
 });

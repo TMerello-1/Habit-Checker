@@ -6,11 +6,16 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.view.View;
 import android.widget.RemoteViews;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Home screen widget listing today's open habits. Tapping it opens the app. */
+/**
+ * Home screen widget listing today's open habits. Tapping it opens the app. A 📨 in the top
+ * bar marks unread feedback (FeedbackJob.unread) and opens it when tapped.
+ */
 public class HabitWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context ctx, AppWidgetManager manager, int[] ids) {
@@ -62,6 +67,15 @@ public class HabitWidget extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_count, count);
         views.setTextViewText(R.id.widget_list, list);
         views.setOnClickPendingIntent(R.id.widget_root, tap);
+        String mail = FeedbackJob.unread(ctx);
+        views.setViewVisibility(R.id.widget_mail, mail == null ? View.GONE : View.VISIBLE);
+        if (mail != null) {
+            Intent openMail = new Intent(ctx, MainActivity.class)
+                    .setData(Uri.parse(MainActivity.START_URL + mail))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            views.setOnClickPendingIntent(R.id.widget_mail, PendingIntent.getActivity(
+                    ctx, 1, openMail, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        }
         manager.updateAppWidget(ids, views);
     }
 }

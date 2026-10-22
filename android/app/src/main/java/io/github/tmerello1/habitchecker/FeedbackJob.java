@@ -37,20 +37,59 @@ public class FeedbackJob extends JobService {
     /** Takes in the friends data the web app just saved: is an admin signed in here? */
     static void update(Context ctx, String friendsJson) {
         String code = "";
+        String inboxSeen = "";
         try {
             JSONObject friends = new JSONObject(friendsJson);
             if (friends.optBoolean("admin") && friends.optJSONObject("me") != null) code = friends.optString("code");
+            inboxSeen = friends.optString("inboxSeen");
         } catch (Exception e) {
             // Unreadable: treat as signed out.
         }
         Store.setAdminCode(ctx, code);
+        Store.setInboxSeen(ctx, inboxSeen);
         reschedule(ctx);
+        HabitWidget.refresh(ctx);
     }
 
     /** Takes in the feedback threads the web app just saved. */
     static void updateThreads(Context ctx, String threadsJson) {
         Store.setThreads(ctx, threadsJson == null ? "[]" : threadsJson);
         reschedule(ctx);
+        HabitWidget.refresh(ctx);
+    }
+
+    /**
+     * Where unread feedback is, for the widget's 📨: "#inbox" when an admin signed in here has
+     * feedback or answers newer than the inbox showed, "#feedback" when feedback sent from here
+     * has replies or a reaction not yet opened, otherwise null.
+     */
+    static String unread(Context ctx) {
+        if (!Store.adminCode(ctx).isEmpty() && Store.feedbackSeen(ctx).compareTo(Store.inboxSeen(ctx)) > 0) return "#inbox";
+        JSONArray threads = openThreads(ctx);
+        for (int i = 0; i < threads.length(); i++) {
+            JSONObject t = threads.optJSONObject(i);
+            if (t == null) continue;
+            // What the app last fetched, or what this job saw since, whichever knows more.
+            int replies = 0;
+            JSONArray messages = t.optJSONArray("messages");
+            for (int j = 0; messages != null && j < messages.length(); j++) {
+                JSONObject m = messages.optJSONObject(j);
+                if (m != null && m.optBoolean("fromAdmin")) replies++;
+            }
+            String reaction = t.optString("reaction");
+            String[] seen = Store.threadSeen(ctx, t.optString("id"), "").split("\\|", -1);
+            if (seen.length == 2) {
+                try {
+                    replies = Math.max(replies, Integer.parseInt(seen[0]));
+                } catch (NumberFormatException e) {
+                    // Keep the app's count.
+                }
+                reaction = seen[1];
+            }
+            if (replies > t.optInt("seenAdmin")) return "#feedback";
+            if (!reaction.isEmpty() && !reaction.equals(t.optString("seenReaction"))) return "#feedback";
+        }
+        return null;
     }
 
     /** Runs the checks while there's anything to check, and stops them otherwise. */
@@ -96,6 +135,7 @@ public class FeedbackJob extends JobService {
             } catch (Exception e) {
                 // Same.
             }
+            HabitWidget.refresh(getApplicationContext());
             jobFinished(params, false);
         }).start();
         return true;
