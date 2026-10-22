@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 27, date: '2026-10-22',
+    en: 'Help is up to date: new topics on your profile, backup and sync, feedback, and installing the app or the Android app.',
+    de: 'Die Hilfe ist auf dem neuesten Stand: neue Themen zu Profil, Sicherung und Sync, Feedback und zum Installieren der App oder der Android-App.',
+  },
+  {
     v: 26, date: '2026-10-22',
     en: 'When the friends server is down, the app now says so instead of asking you to check your connection. The Android app shows a "Try again" page if it can\'t load at all.',
     de: 'Wenn der Freunde-Server ausfällt, sagt die App das jetzt, statt dich deine Verbindung prüfen zu lassen. Die Android-App zeigt eine „Nochmal versuchen“-Seite, wenn sie gar nicht lädt.',
