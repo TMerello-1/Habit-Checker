@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 32, date: '2026-10-24', notable: true,
+    en: 'Pile habits are now stacks of rounds: say how many rounds a day, week or month starts with (say 30 a week) instead of picking days. Starting partway in gives a smaller first stack, and every round beyond the stack earns 5 bonus points.',
+    de: 'Stapel-Gewohnheiten sind jetzt Rundenstapel: Leg fest, mit wie vielen Runden ein Tag, eine Woche oder ein Monat startet (zum Beispiel 30 pro Woche), statt Tage auszuwählen. Wer mittendrin anfängt, bekommt einen kleineren ersten Stapel, und jede Runde über den Stapel hinaus bringt 5 Bonuspunkte.',
+  },
+  {
     v: 31, date: '2026-10-22',
     en: 'More feedback you send now joins your open chat instead of starting a new one, so the team sees one conversation per person.',
     de: 'Weiteres Feedback landet jetzt in deinem offenen Chat statt in einem neuen, damit das Team ein Gespräch pro Person sieht.',

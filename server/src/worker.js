@@ -17,7 +17,7 @@
 // can call it.
 
 import { dueHabits, isValidTimeZone, localClock } from './schedule.js';
-import { PILE_PERIODS } from '../../src/habits.js';
+import { MAX_STACK, PILE_PERIODS } from '../../src/habits.js';
 import { sendPush, vapidPublicKey } from './webpush.js';
 
 const CORS = {
@@ -81,7 +81,15 @@ function cleanHabits(habits) {
     createdAt: isDateKey(h.createdAt) ? h.createdAt : '1970-01-01',
     ...(PILE_PERIODS.includes(h.pile) ? { pile: h.pile } : {}),
     ...(isDateKey(h.pileSince) ? { pileSince: h.pileSince } : {}),
+    ...(isStack(h.stack) ? { stack: h.stack } : {}),
+    ...(Array.isArray(h.pastStacks)
+      ? { pastStacks: h.pastStacks.filter((p) => isDateKey(p?.until)).slice(-50).map((p) => ({ until: p.until, ...(isStack(p.stack) ? { stack: p.stack } : {}) })) }
+      : {}),
   }));
+}
+
+function isStack(n) {
+  return Number.isInteger(n) && n >= 1 && n <= MAX_STACK;
 }
 
 // Pile habits' rounds: { [habitId]: ["YYYY-MM-DD", ...] }, a day repeated once per round.

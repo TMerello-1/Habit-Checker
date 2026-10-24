@@ -3,6 +3,7 @@ package io.github.tmerello1.habitchecker;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,14 +106,50 @@ final class Habits {
         return date;
     }
 
-    /** Rounds still to do this period, like pileCount(): planned days so far minus rounds done. */
-    int pileCount(Habit habit, LocalDate date) {
+    /** The pile's first day in the period around date, like pileFrom() in habits.js. */
+    static LocalDate pileFrom(Habit habit, LocalDate date) {
         LocalDate start = periodStart(habit.pile, date);
-        // Days before the pile was switched on don't count (pileFrom() in habits.js).
         String since = habit.json.optString("pileSince", "");
-        if (since.compareTo(start.toString()) > 0) start = LocalDate.parse(since);
-        int n = 0;
-        for (LocalDate d = start; !d.isAfter(date); d = d.plusDays(1)) if (isScheduled(habit, d)) n++;
+        if (since.isEmpty()) since = habit.json.optString("createdAt", "");
+        return since.compareTo(start.toString()) > 0 ? LocalDate.parse(since) : start;
+    }
+
+    /** The stack size for the period starting on start, from pastStacks or stack (0 if none). */
+    static int stackOn(Habit habit, LocalDate start) {
+        String key = start.toString();
+        JSONArray past = habit.json.optJSONArray("pastStacks");
+        for (int i = 0; past != null && i < past.length(); i++) {
+            JSONObject p = past.optJSONObject(i);
+            if (p != null && key.compareTo(p.optString("until")) < 0) return p.optInt("stack", 0);
+        }
+        return habit.json.optInt("stack", 0);
+    }
+
+    /**
+     * The stack the period around date starts with, like periodStack(): a daily stack on
+     * planned days, weekly and monthly ones cut down to the days left in their first period,
+     * and one round per planned day for habits from before stacks existed.
+     */
+    static int periodStack(Habit habit, LocalDate date) {
+        LocalDate start = periodStart(habit.pile, date);
+        LocalDate end = periodEnd(habit.pile, date);
+        LocalDate from = pileFrom(habit, date);
+        int n = stackOn(habit, start);
+        if (n <= 0) {
+            int planned = 0;
+            for (LocalDate d = from; !d.isAfter(end); d = d.plusDays(1)) if (isScheduled(habit, d)) planned++;
+            return planned;
+        }
+        if (habit.pile.equals("day")) return isScheduled(habit, date) ? n : 0;
+        if (from.isAfter(end)) return 0;
+        long left = ChronoUnit.DAYS.between(from, end) + 1, total = ChronoUnit.DAYS.between(start, end) + 1;
+        return (int) ((n * left + total - 1) / total);
+    }
+
+    /** Rounds still to do this period, like pileCount(): its stack minus rounds done so far. */
+    int pileCount(Habit habit, LocalDate date) {
+        LocalDate start = pileFrom(habit, date);
+        int n = periodStack(habit, date);
         JSONArray done = completions.optJSONArray(habit.id);
         String from = start.toString(), to = date.toString();
         for (int i = 0; done != null && i < done.length(); i++) {
@@ -122,6 +159,14 @@ final class Habits {
         return n;
     }
 
+    /** Weekly and monthly piles have no planned days, like plannedOn(). */
+    static boolean plannedOn(Habit habit, LocalDate date) {
+        if (habit.pile.equals("week") || habit.pile.equals("month")) {
+            return date.toString().compareTo(habit.json.optString("createdAt", "")) >= 0;
+        }
+        return isScheduled(habit, date);
+    }
+
     boolean isOpen(Habit habit, LocalDate date) {
         if (!habit.pile.isEmpty()) return pileCount(habit, date) > 0;
         return isScheduled(habit, date) && !isDone(habit, date);
@@ -129,14 +174,14 @@ final class Habits {
 
     boolean remindOn(Habit habit, LocalDate date) {
         if (!isOpen(habit, date)) return false;
-        return isScheduled(habit, date) || (!habit.pile.isEmpty() && date.equals(periodEnd(habit.pile, date)));
+        return plannedOn(habit, date) || !habit.pile.isEmpty();
     }
 
-    /** Today's list, like onToday(): scheduled habits plus pile habits that still owe rounds. */
+    /** Today's list, like onToday(): planned habits plus daily piles that still owe rounds. */
     List<Habit> onToday(LocalDate date) {
         List<Habit> out = new ArrayList<>();
         for (Habit h : habits) {
-            if (isScheduled(h, date) || (!h.pile.isEmpty() && pileCount(h, date) > 0)) out.add(h);
+            if (plannedOn(h, date) || (!h.pile.isEmpty() && pileCount(h, date) > 0)) out.add(h);
         }
         return out;
     }

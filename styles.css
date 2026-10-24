@@ -126,6 +126,7 @@ h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
 }
 .pile-hint { display: block; margin: 4px 0 12px; }
+.pile-hint[hidden], #stack-field[hidden] { display: none; }
 #habit-pile { justify-self: stretch; max-width: 100%; }
 .check-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .check {
@@ -395,7 +396,7 @@ button[type=submit], #copy-data, #import-btn, #feedback-send {
 
 /* Friends */
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 12px; }
-.panel[hidden], .code-box[hidden], .row[hidden] { display: none; }
+.panel[hidden], .code-box[hidden], .row[hidden], .days[hidden] { display: none; }
 .panel p { margin: 0; }
 .profile { display: flex; align-items: center; gap: 12px; }
 .profile .name { display: flex; flex-direction: column; min-width: 0; }
