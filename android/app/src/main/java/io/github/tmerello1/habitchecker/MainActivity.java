@@ -33,21 +33,24 @@ public class MainActivity extends Activity {
     private static final String INVITE_HOST = "habit-checker-friends.habits-f6268550.workers.dev";
 
     // Wraps localStorage.setItem so every save of the app state is passed to the bridge, and
-    // each save of the friends data too (FeedbackJob needs to know about admin profiles).
+    // each save of the friends data too (FeedbackJob needs to know about admin profiles), and
+    // the level and award counts the widget shows.
     private static final String BRIDGE_JS = "(function () {"
             + "  if (window.__habitBridge) return; window.__habitBridge = true;"
-            + "  var KEY = 'habit-checker:v1', FRIENDS = 'habit-checker:friends', FEEDBACK = 'habit-checker:feedback';"
+            + "  var KEY = 'habit-checker:v1', FRIENDS = 'habit-checker:friends', FEEDBACK = 'habit-checker:feedback', REWARDS = 'habit-checker:rewards';"
             + "  var push = function () { HabitCheckerBridge.saveState(localStorage.getItem(KEY) || ''); };"
             + "  var pushFriends = function () { HabitCheckerBridge.saveFriends(localStorage.getItem(FRIENDS) || '{}'); };"
             + "  var pushFeedback = function () { HabitCheckerBridge.saveFeedback(localStorage.getItem(FEEDBACK) || '[]'); };"
+            + "  var pushRewards = function () { HabitCheckerBridge.saveRewards(localStorage.getItem(REWARDS) || ''); };"
             + "  var setItem = Storage.prototype.setItem;"
             + "  Storage.prototype.setItem = function (k) {"
             + "    setItem.apply(this, arguments);"
             + "    if (k === KEY) push();"
             + "    if (k === FRIENDS) pushFriends();"
             + "    if (k === FEEDBACK) pushFeedback();"
+            + "    if (k === REWARDS) pushRewards();"
             + "  };"
-            + "  push(); pushFriends(); pushFeedback();"
+            + "  push(); pushFriends(); pushFeedback(); pushRewards();"
             + "})();";
 
     private WebView web;
@@ -255,6 +258,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void saveFeedback(String json) {
             FeedbackJob.updateThreads(getApplicationContext(), json);
+        }
+
+        @JavascriptInterface
+        public void saveRewards(String json) {
+            if (json == null || json.isEmpty() || json.equals(Store.rewards(MainActivity.this))) return;
+            Store.setRewards(MainActivity.this, json);
+            HabitWidget.refresh(getApplicationContext());
         }
     }
 }
