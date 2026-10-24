@@ -624,7 +624,7 @@ async function install() {
 
 // The ⋮ menu in the header holds things needed rarely, like moving data.
 // Tapping a dialog's dimmed backdrop or its ✕ closes it.
-for (const dlg of document.querySelectorAll('#menu, #move-dialog, #feedback-dialog, #help-dialog, #inbox-dialog, #progress-dialog, #profile-dialog')) {
+for (const dlg of document.querySelectorAll('#menu, #move-dialog, #feedback-dialog, #help-dialog, #news-dialog, #inbox-dialog, #progress-dialog, #profile-dialog')) {
   dlg.onclick = (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   };
@@ -1463,25 +1463,31 @@ async function syncAdminDevice() {
   }, { 0: null, 403: null });
 }
 
-// Help and the full "What's new" list, from the ⋮ menu or the banner below.
+// Help and the full "What's new" list, each its own ⋮ menu entry; the banner below
+// opens "What's new" too.
 $('#menu-help').onclick = () => {
   $('#menu').close();
-  openHelp();
-};
-
-function openHelp(atWhatsNew = false) {
   $('#help-topics').innerHTML = t('helpTopics')
     .map(([title, text]) => `<h3>${esc(title)}</h3><p>${esc(text)}</p>`)
     .join('');
+  $('#help-dialog').showModal();
+  $('#help-dialog .help').scrollTop = 0;
+};
+
+$('#menu-news').onclick = () => {
+  $('#menu').close();
+  openNews();
+};
+
+function openNews() {
   $('#whats-new-list').innerHTML = changesByDate(getLang())
     .map(({ date, items }) => {
       const when = new Date(`${date}T12:00`).toLocaleDateString(getLang(), { dateStyle: 'long' });
       return `<h3>${esc(when)}</h3><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`;
     })
     .join('');
-  $('#help-dialog').showModal();
-  const help = $('#help-dialog .help');
-  help.scrollTop = atWhatsNew ? $('#whats-new-title').offsetTop - help.offsetTop : 0;
+  $('#news-dialog').showModal();
+  $('#news-dialog .help').scrollTop = 0;
 }
 
 // After an update with a notable change, a small banner says so once. It counts as seen
@@ -1495,7 +1501,7 @@ if (newChange) {
 $('#whats-new-close').onclick = () => ($('#whats-new-banner').hidden = true);
 $('#whats-new-more').onclick = () => {
   $('#whats-new-banner').hidden = true;
-  openHelp(true);
+  openNews();
 };
 
 // Tapping a new-feedback notification opens the app at …#inbox, and a reply to your own

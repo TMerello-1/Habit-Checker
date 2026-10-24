@@ -147,7 +147,8 @@ export const STRINGS = {
     notReplyable: "Sent before replies existed, so it can't be answered.",
     reactionLabel: 'React with {emoji}',
     inboxPushHint: 'Turn on reminders on this device to get a notification when new feedback arrives.',
-    helpItem: '❓ Help & what\'s new',
+    helpItem: '❓ Help',
+    newsItem: '✨ What\'s new',
     help: 'Help',
     helpTopics: [
       ['➕ Habits', 'Tap ＋ at the bottom right, give the habit a name and an emoji, pick the days and, if you like, a reminder time. Under "All habits", tap ✎ next to a habit to change it or ✕ to delete it.'],
@@ -412,7 +413,8 @@ export const STRINGS = {
     notReplyable: 'Vor der Antwort-Funktion gesendet, darum nicht beantwortbar.',
     reactionLabel: 'Mit {emoji} reagieren',
     inboxPushHint: 'Schalte auf diesem Gerät die Erinnerungen ein, um bei neuem Feedback benachrichtigt zu werden.',
-    helpItem: '❓ Hilfe & Neuigkeiten',
+    helpItem: '❓ Hilfe',
+    newsItem: '✨ Neuigkeiten',
     help: 'Hilfe',
     helpTopics: [
       ['➕ Gewohnheiten', 'Tipp unten rechts auf ＋, gib der Gewohnheit einen Namen und ein Emoji, wähle die Tage und, wenn du magst, eine Erinnerungszeit. Unter „Alle Gewohnheiten“ tippst du neben einer Gewohnheit auf ✎, um sie zu ändern, oder auf ✕, um sie zu löschen.'],
