@@ -116,7 +116,7 @@ export function awardPoints(unit, milestone) {
 }
 
 // The colour ring around an award, from how many days its streak took.
-const TIERS = [[360, 'diamond'], [180, 'platinum'], [60, 'gold'], [14, 'silver'], [0, 'bronze']];
+const TIERS = [[360, 'ruby'], [180, 'platinum'], [60, 'gold'], [14, 'silver'], [0, 'bronze']];
 
 export function awardTier(unit, milestone) {
   const days = milestone * DAYS_PER[unit];
