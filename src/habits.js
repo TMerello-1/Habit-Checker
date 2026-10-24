@@ -93,10 +93,45 @@ export function longestStreak(habit, completions, today = new Date()) {
   return best;
 }
 
-export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
+// Streak awards. The habit's streak unit picks the kind: medals for days, trophies for
+// weeks, laurels for months, each with milestones in that unit. An award pays about what a
+// medal for the same stretch of time pays, so keeping a weekly or monthly streak is worth
+// as much as a daily one.
+export const AWARDS = {
+  day: { emoji: '🏅', steps: [[3, 25], [7, 50], [14, 100], [30, 200], [60, 350], [100, 500], [200, 750], [365, 1000]] },
+  week: { emoji: '🏆', steps: [[1, 50], [2, 100], [4, 200], [8, 350], [12, 500], [26, 750], [52, 1000]] },
+  month: { emoji: '🏵️', steps: [[1, 200], [2, 350], [3, 500], [6, 750], [9, 875], [12, 1000], [24, 1500]] },
+};
 export const POINTS_PER_CHECKIN = 10;
-export const POINTS_PER_MILESTONE = 50;
 export const POINTS_PER_BEATEN = 5;
+// Clearing a whole weekly or monthly stack earns this on top of its rounds.
+export const CLEAR_BONUS = { week: 30, month: 120 };
+
+export function milestones(unit) {
+  return AWARDS[unit].steps.map(([m]) => m);
+}
+
+export function awardPoints(unit, milestone) {
+  return AWARDS[unit].steps.find(([m]) => m === milestone)?.[1] ?? 0;
+}
+
+// The colour ring around an award, from how many days its streak took.
+const TIERS = [[360, 'diamond'], [180, 'platinum'], [60, 'gold'], [14, 'silver'], [0, 'bronze']];
+
+export function awardTier(unit, milestone) {
+  const days = milestone * DAYS_PER[unit];
+  return TIERS.find(([d]) => days >= d)[1];
+}
+
+// Points grow with the streak a check-in builds on, counted in days (weeks ×7, months ×30).
+export function streakMultiplier(days) {
+  return days >= 100 ? 3 : days >= 30 ? 2 : days >= 7 ? 1.5 : 1;
+}
+
+// The multiplier the habit's current streak gives, for the Progress sheet.
+export function streakBonus(habit, completions, today = new Date()) {
+  return streakMultiplier(currentStreak(habit, completions, today) * DAYS_PER[streakUnit(habit)]);
+}
 
 // Rewards are derived from history every time rather than stored, so un-checking a
 // mistaken tap takes the points back and nothing can drift out of sync.
@@ -104,21 +139,71 @@ export function rewards(habits, completions, today = new Date()) {
   const badges = [];
   let checkins = 0;
   let beaten = 0;
+  let points = 0;
   for (const habit of habits) {
     checkins += (completions[habit.id] || []).length;
-    if (habit.pile) beaten += beatenRounds(habit, completions, today);
+    const earned = checkinPoints(habit, completions, today);
+    points += earned.points;
+    beaten += earned.beaten;
+    const unit = streakUnit(habit);
     const best = longestStreak(habit, completions, today);
-    for (const m of STREAK_MILESTONES) {
-      if (best >= m) badges.push({ habitId: habit.id, milestone: m, unit: streakUnit(habit) });
-    }
-    // Day badges earned before the pile was switched on are kept.
+    for (const m of milestones(unit)) if (best >= m) badges.push({ habitId: habit.id, milestone: m, unit });
+    // Day medals earned before the pile was switched on are kept.
     if (habit.pile && habit.pileSince) {
       const before = longestStreak({ ...habit, pile: undefined }, completions, addDays(parseKey(habit.pileSince), -1));
-      for (const m of STREAK_MILESTONES) if (before >= m) badges.push({ habitId: habit.id, milestone: m, unit: 'day' });
+      const has = (m) => badges.some((b) => b.habitId === habit.id && b.unit === 'day' && b.milestone === m);
+      for (const m of milestones('day')) if (before >= m && !has(m)) badges.push({ habitId: habit.id, milestone: m, unit: 'day' });
     }
   }
-  const points = checkins * POINTS_PER_CHECKIN + beaten * POINTS_PER_BEATEN + badges.length * POINTS_PER_MILESTONE;
-  return { points, level: Math.floor(points / 250) + 1, checkins, beaten, badges };
+  for (const b of badges) points += awardPoints(b.unit, b.milestone);
+  return { points, level: levelProgress(points).level, checkins, beaten, badges };
+}
+
+// A habit's check-in points: each check-in earns 10 times the multiplier of the streak
+// built before it. Stack rounds use the periods cleared in a row before theirs, and so do
+// rounds beyond the stack (5 each, up to one extra stack per period, so tapping on and on
+// doesn't farm points) and the bonus for clearing a weekly or monthly stack.
+function checkinPoints(habit, completions, today) {
+  const list = completions[habit.id] || [];
+  let points = 0;
+  let counted = 0;
+  let beaten = 0;
+  // Before a pile was switched on, the habit was a plain one.
+  const plainUntil = !habit.pile ? today : habit.pileSince ? addDays(parseKey(habit.pileSince), -1) : null;
+  if (plainUntil) {
+    const per = new Map();
+    for (const k of list) per.set(k, (per.get(k) || 0) + 1);
+    const todayKey = dateKey(today);
+    let run = 0;
+    for (let day = parseKey(habit.createdAt); day <= plainUntil; day = addDays(day, 1)) {
+      const key = dateKey(day);
+      const n = per.get(key) || 0;
+      points += n * POINTS_PER_CHECKIN * streakMultiplier(run);
+      counted += n;
+      if (!isScheduled(habit, day)) continue;
+      if (n) run++;
+      else if (key !== todayKey) run = 0;
+    }
+  }
+  if (habit.pile) {
+    const current = dateKey(periodStart(habit.pile, today));
+    let run = 0;
+    for (let day = parseKey(habit.pileSince || habit.createdAt); day <= today; ) {
+      const p = tally(habit, completions, day);
+      const x = streakMultiplier(run * DAYS_PER[habit.pile]);
+      const extra = Math.min(Math.max(0, p.done - p.planned), p.planned);
+      const cleared = p.planned && p.done >= p.planned;
+      points += x * (p.done * POINTS_PER_CHECKIN + extra * POINTS_PER_BEATEN + (cleared ? CLEAR_BONUS[habit.pile] || 0 : 0));
+      counted += p.done;
+      beaten += extra;
+      if (cleared) run++;
+      else if (p.planned && dateKey(p.start) !== current) run = 0;
+      day = addDays(periodEnd(habit.pile, day), 1);
+    }
+  }
+  // Check-ins outside the habit's days (none in normal use) count without a multiplier.
+  points += Math.max(0, list.length - counted) * POINTS_PER_CHECKIN;
+  return { points: Math.round(points), beaten };
 }
 
 export function dueToday(habits, today = new Date()) {
@@ -166,27 +251,36 @@ export function sharedStats(habits, completions, today = new Date()) {
 }
 
 export const POINTS_PER_LEVEL = 250;
+export const LEVEL_STEP = 50;
 
-// Where `points` sit within the current level, for the bar and "N pts to level X" in the header.
+// Each level costs 50 points more than the one before (250, 300, 350, ...), so the
+// bigger rewards of long streaks don't race through the levels. `size` is what the
+// current level costs, for the bar and "N pts to level X" in the header.
 export function levelProgress(points) {
-  const into = points % POINTS_PER_LEVEL;
-  return { level: Math.floor(points / POINTS_PER_LEVEL) + 1, into, toNext: POINTS_PER_LEVEL - into };
+  let level = 1;
+  let into = points;
+  let size = POINTS_PER_LEVEL;
+  while (into >= size) {
+    into -= size;
+    level++;
+    size += LEVEL_STEP;
+  }
+  return { level, into, size, toNext: size - into };
 }
 
-// One entry per habit with a badge: its highest milestone and the next one to aim for
-// (null once all are earned). Keeps the Progress sheet short as badges pile up.
+// One entry per habit and kind of award: its highest milestone and the next one to aim
+// for (null once all are earned). Keeps the Progress sheet short as awards pile up.
 export function bestBadges(badges) {
   const best = new Map();
-  const units = new Map();
   for (const b of badges) {
-    if (b.milestone > (best.get(b.habitId) ?? 0)) best.set(b.habitId, b.milestone);
-    units.set(b.habitId, b.unit);
+    const key = `${b.habitId} ${b.unit}`;
+    if (b.milestone > (best.get(key)?.milestone ?? 0)) best.set(key, b);
   }
-  return [...best].map(([habitId, milestone]) => ({
+  return [...best.values()].map(({ habitId, milestone, unit }) => ({
     habitId,
     milestone,
-    unit: units.get(habitId),
-    next: STREAK_MILESTONES.find((m) => m > milestone) ?? null,
+    unit,
+    next: milestones(unit).find((m) => m > milestone) ?? null,
   }));
 }
 
@@ -308,18 +402,6 @@ function tally(habit, completions, date) {
   const start = pileFrom(habit, date);
   const end = periodEnd(habit.pile, date);
   return { start: periodStart(habit.pile, date), planned: periodStack(habit, date), done: roundsBetween(completions, habit.id, dateKey(start), dateKey(end)) };
-}
-
-// Rounds done beyond each period's stack, which earn bonus points. Up to one extra stack
-// per period counts, so tapping on and on doesn't farm points.
-function beatenRounds(habit, completions, today) {
-  let beaten = 0;
-  for (let day = parseKey(habit.pileSince || habit.createdAt); day <= today; ) {
-    const p = tally(habit, completions, day);
-    beaten += Math.min(Math.max(0, p.done - p.planned), p.planned);
-    day = addDays(periodEnd(habit.pile, day), 1);
-  }
-  return beaten;
 }
 
 // Periods in a row with the pile cleared. The current period counts once all of its

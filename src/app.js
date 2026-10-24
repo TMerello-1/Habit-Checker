@@ -9,7 +9,7 @@ import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
 import { addThread, chatFor, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
-import { bestBadges, currentStreak, daysThrough, editHabit, isDone, isOpen, levelProgress, MAX_STACK, missedYesterday, onToday, openToday, periodEnd, periodStack, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit, suggestedStack } from './habits.js';
+import { AWARDS, awardPoints, awardTier, bestBadges, currentStreak, daysThrough, editHabit, isDone, isOpen, levelProgress, MAX_STACK, missedYesterday, onToday, openToday, periodEnd, periodStack, pileCount, rewards, scheduleKind, sharedStats, sortToday, milestones, streakBonus, streakUnit, suggestedStack } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
@@ -70,23 +70,25 @@ function applyToggle(habit, date = new Date(), undoable = false) {
   const list = state.completions[habit.id] || [];
   const checking = habit.pile || !list.includes(key);
   const before = currentStreak(habit, state.completions);
-  const { level: levelBefore, beaten: beatenBefore } = rewards(state.habits, state.completions);
+  const { level: levelBefore, beaten: beatenBefore, points: pointsBefore } = rewards(state.habits, state.completions);
   state.completions[habit.id] = checking ? [...list, key] : list.filter((d) => d !== key);
   if (habit.pile) undoable = true;
   if (checking && key === dateKey()) dismissReminder(habit.id).catch(() => {});
   const after = currentStreak(habit, state.completions);
-  const { level, beaten } = rewards(state.habits, state.completions);
+  const { level, beaten, points } = rewards(state.habits, state.completions);
   commit();
   if (!checking) return;
   const bonus = beaten > beatenBefore;
-  const milestone = after > before && STREAK_MILESTONES.find((m) => m === after);
+  const unit = streakUnit(habit);
+  const milestone = after > before && milestones(unit).find((m) => m === after);
+  const n = points - pointsBefore;
   const msg = level > levelBefore
     ? t('levelUp', { level })
     : milestone
-      ? t('milestoneToast', { m: milestone, name: habit.name, unit: t(`unit_${streakUnit(habit)}`) })
+      ? t('milestoneToast', { award: AWARDS[unit].emoji, m: milestone, name: habit.name, unit: t(`unit_${unit}`), n: awardPoints(unit, milestone) })
       : bonus
-        ? t('beatToast', { streak: after })
-        : t('pointsToast', { streak: after });
+        ? t('beatToast', { n, streak: after })
+        : t('pointsToast', { n, streak: after });
   toast(msg, undoable ? { label: t('undo'), run: () => (habit.pile ? removeRound(habit, date) : applyToggle(habit, date)) } : null);
 }
 
@@ -256,7 +258,7 @@ function allItem(h) {
 // so it never just drops to empty.
 function setProgress(p) {
   const bar = $('#progress');
-  const width = `${(p.into / 250) * 100}%`;
+  const width = `${(p.into / p.size) * 100}%`;
   if (lastLevel !== null && p.level > lastLevel) {
     bar.style.width = '100%';
     setTimeout(() => {
@@ -275,18 +277,22 @@ function setProgress(p) {
 
 const BADGE_TEXT = { day: 'badgeDays', week: 'badgeWeeks', month: 'badgeMonths' };
 
-// Badges live in the Progress sheet (tap the level in the header): one tile per habit
-// with its best streak badge and the next one to aim for.
+// Awards live in the Progress sheet (tap the level in the header): one tile per habit and
+// kind of award with its best one, ringed in its tier's colour, the next one to aim for and
+// the points multiplier its current streak gives.
 function renderProgressSheet(r, p) {
   $('#progress-level').textContent = t('levelLine', { level: p.level, points: r.points, n: p.toNext, next: p.level + 1 });
   const tiles = bestBadges(r.badges).map((b) => {
     const habit = state.habits.find((h) => h.id === b.habitId);
     const li = document.createElement('li');
-    li.className = 'badge-tile';
+    const tier = awardTier(b.unit, b.milestone);
+    const x = streakBonus(habit, state.completions);
+    li.className = `badge-tile tier-${tier}`;
     li.innerHTML = `
       <span class="badge-emoji" aria-hidden="true">${esc(habit.private ? '🔒' : habit.emoji)}</span>
-      <b>${esc(t(BADGE_TEXT[b.unit] ?? 'badgeDays', { m: b.milestone }))}</b>
-      <small>${esc(b.next ? t('nextBadge', { m: b.next }) : t('allBadges'))}</small>`;
+      <b>${AWARDS[b.unit].emoji} ${esc(t(BADGE_TEXT[b.unit], { m: b.milestone }))}</b>
+      <small>${esc(t(`tier_${tier}`))} · ${esc(b.next ? t('nextBadge', { m: b.next }) : t('allBadges'))}</small>
+      ${x > 1 ? `<small class="streak-bonus">🔥 ${esc(t('streakBonus', { x: x.toLocaleString(getLang()) }))}</small>` : ''}`;
     return li;
   });
   $('#badges').replaceChildren(
