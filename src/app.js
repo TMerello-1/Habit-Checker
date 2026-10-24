@@ -280,6 +280,8 @@ const BADGE_TEXT = { day: 'badgeDays', week: 'badgeWeeks', month: 'badgeMonths' 
 // Monthly awards are a laurel wreath, drawn here since there's no emoji for one.
 const LAUREL = '<svg class="award-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.89 18.92A8 8 0 0 1 7.76 4.22M13.11 18.92A8 8 0 0 0 16.24 4.22" fill="none" stroke="#3d7323" stroke-width="1" stroke-linecap="round"/><g fill="#5b9f30"><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(9.93 18.73) rotate(-117)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(9.93 18.73) rotate(-33)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.07 17.30) rotate(-94)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.07 17.30) rotate(-10)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.00 14.88) rotate(-71)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.00 14.88) rotate(13)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.04 11.84) rotate(-48)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.04 11.84) rotate(36)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.35 8.66) rotate(-25)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.35 8.66) rotate(59)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.87 5.86) rotate(-2)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.87 5.86) rotate(82)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.76 4.22) rotate(58)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(14.07 18.73) rotate(33)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(14.07 18.73) rotate(117)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.93 17.30) rotate(10)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.93 17.30) rotate(94)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.00 14.88) rotate(-13)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.00 14.88) rotate(71)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.96 11.84) rotate(-36)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.96 11.84) rotate(48)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.65 8.66) rotate(-59)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.65 8.66) rotate(25)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(18.13 5.86) rotate(-82)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(18.13 5.86) rotate(2)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.24 4.22) rotate(-58)"/></g><path d="M12 18.6l-2.6 1.4.5 2.6 2.1-1.6 2.1 1.6.5-2.6z" fill="#d9a400"/></svg>';
 const AWARD_ICON = { day: '🏅', week: '🏆', month: LAUREL };
+// Texts write the laurel as {laurel}; this escapes them and draws it in.
+const withIcons = (text) => esc(text).replaceAll('{laurel}', LAUREL);
 
 // Awards live in the Progress sheet (tap the level in the header): one tile per habit and
 // kind of award with its best one, ringed in its tier's colour, the next one to aim for and
@@ -300,7 +302,7 @@ function renderProgressSheet(r, p) {
     return li;
   });
   $('#badges').replaceChildren(
-    ...(tiles.length ? tiles : [Object.assign(document.createElement('li'), { className: 'muted', textContent: t('firstBadge') })]),
+    ...(tiles.length ? tiles : [Object.assign(document.createElement('li'), { className: 'muted', innerHTML: withIcons(t('firstBadge')) })]),
   );
 }
 
@@ -1468,7 +1470,7 @@ async function syncAdminDevice() {
 $('#menu-help').onclick = () => {
   $('#menu').close();
   $('#help-topics').innerHTML = t('helpTopics')
-    .map(([title, text]) => `<h3>${esc(title)}</h3><p>${esc(text)}</p>`)
+    .map(([title, text]) => `<h3>${withIcons(title)}</h3><p>${withIcons(text)}</p>`)
     .join('');
   $('#help-dialog').showModal();
   $('#help-dialog .help').scrollTop = 0;
@@ -1483,7 +1485,7 @@ function openNews() {
   $('#whats-new-list').innerHTML = changesByDate(getLang())
     .map(({ date, items }) => {
       const when = new Date(`${date}T12:00`).toLocaleDateString(getLang(), { dateStyle: 'long' });
-      return `<h3>${esc(when)}</h3><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      return `<h3>${esc(when)}</h3><ul>${items.map((i) => `<li>${withIcons(i)}</li>`).join('')}</ul>`;
     })
     .join('');
   $('#news-dialog').showModal();
@@ -1495,7 +1497,7 @@ function openNews() {
 const newChange = bannerChange(loadSeenVersion(), state.habits.length > 0);
 saveSeenVersion(LATEST);
 if (newChange) {
-  $('#whats-new-text').textContent = t('newBanner', { text: newChange[getLang()] ?? newChange.en });
+  $('#whats-new-text').innerHTML = withIcons(t('newBanner', { text: newChange[getLang()] ?? newChange.en }));
   $('#whats-new-banner').hidden = false;
 }
 $('#whats-new-close').onclick = () => ($('#whats-new-banner').hidden = true);
