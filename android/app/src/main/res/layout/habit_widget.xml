@@ -49,4 +49,38 @@
         android:lineSpacingExtra="4dp"
         android:textColor="@color/widget_text"
         android:textSize="15sp" />
+
+    <!-- Level and awards, filled in from the web app's habit-checker:rewards save. -->
+    <LinearLayout
+        android:id="@+id/widget_rewards"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_rewards_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/widget_muted"
+            android:textSize="13sp" />
+
+        <ImageView
+            android:id="@+id/widget_laurel"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="2dp"
+            android:contentDescription="@string/widget_wreaths"
+            android:src="@drawable/laurel" />
+
+        <TextView
+            android:id="@+id/widget_laurel_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:textColor="@color/widget_muted"
+            android:textSize="13sp" />
+    </LinearLayout>
 </LinearLayout>

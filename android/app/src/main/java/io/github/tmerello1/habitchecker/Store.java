@@ -17,6 +17,15 @@ final class Store {
         prefs(ctx).edit().putString("state", json).apply();
     }
 
+    /** The level and award counts the web app saves for the widget (habit-checker:rewards), as JSON. */
+    static String rewards(Context ctx) {
+        return prefs(ctx).getString("rewards", "");
+    }
+
+    static void setRewards(Context ctx, String json) {
+        prefs(ctx).edit().putString("rewards", json).apply();
+    }
+
     /** The day a habit's reminder last fired, so it fires once a day (state.notified on the web). */
     static String notified(Context ctx, String habitId) {
         return prefs(ctx).getString("notified:" + habitId, "");

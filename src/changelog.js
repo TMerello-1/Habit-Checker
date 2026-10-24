@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 36, date: '2026-10-24',
+    en: 'Android: the widget now shows your level and how many 🏅 medals, 🏆 trophies and {laurel} laurel wreaths you have. Needs the latest app update.',
+    de: 'Android: Das Widget zeigt jetzt dein Level und wie viele 🏅 Medaillen, 🏆 Pokale und {laurel} Lorbeerkränze du hast. Dafür braucht es das neueste App-Update.',
+  },
+  {
     v: 35, date: '2026-10-24',
     en: 'The {laurel} laurel wreath now shows in Help and What\'s new too, not just on your awards.',
     de: 'Der {laurel} Lorbeerkranz erscheint jetzt auch in Hilfe und Neuigkeiten, nicht nur bei deinen Auszeichnungen.',

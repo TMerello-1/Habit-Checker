@@ -11,10 +11,14 @@ import android.view.View;
 import android.widget.RemoteViews;
 import java.time.LocalDate;
 import java.util.List;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Home screen widget listing today's open habits. Tapping it opens the app. A 📨 in the top
- * bar marks unread feedback (FeedbackJob.unread) and opens it when tapped.
+ * bar marks unread feedback (FeedbackJob.unread) and opens it when tapped. The bottom line
+ * shows the level and how many medals, trophies and laurel wreaths were earned, as the web
+ * app last saved them (rewards are worked out there, not here).
  */
 public class HabitWidget extends AppWidgetProvider {
     @Override
@@ -67,6 +71,7 @@ public class HabitWidget extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_count, count);
         views.setTextViewText(R.id.widget_list, list);
         views.setOnClickPendingIntent(R.id.widget_root, tap);
+        showRewards(ctx, views);
         String mail = FeedbackJob.unread(ctx);
         views.setViewVisibility(R.id.widget_mail, mail == null ? View.GONE : View.VISIBLE);
         if (mail != null) {
@@ -77,5 +82,27 @@ public class HabitWidget extends AppWidgetProvider {
                     ctx, 1, openMail, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
         }
         manager.updateAppWidget(ids, views);
+    }
+
+    // "Level 12 · 🏅 5 · 🏆 2 · (wreath) 1", leaving out kinds not earned yet. The wreath is
+    // a drawing, not an emoji, so it sits in its own ImageView at the end of the line.
+    private static void showRewards(Context ctx, RemoteViews views) {
+        JSONObject r;
+        try {
+            r = new JSONObject(Store.rewards(ctx));
+        } catch (JSONException e) {
+            views.setViewVisibility(R.id.widget_rewards, View.GONE);
+            return;
+        }
+        StringBuilder text = new StringBuilder(ctx.getString(R.string.widget_level, r.optInt("level", 1)));
+        int medals = r.optInt("medals"), trophies = r.optInt("trophies"), wreaths = r.optInt("wreaths");
+        if (medals > 0) text.append("  ·  🏅 ").append(medals);
+        if (trophies > 0) text.append("  ·  🏆 ").append(trophies);
+        if (wreaths > 0) text.append("  ·");
+        views.setTextViewText(R.id.widget_rewards_text, text);
+        views.setViewVisibility(R.id.widget_laurel, wreaths > 0 ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_laurel_count, wreaths > 0 ? View.VISIBLE : View.GONE);
+        views.setTextViewText(R.id.widget_laurel_count, String.valueOf(wreaths));
+        views.setViewVisibility(R.id.widget_rewards, View.VISIBLE);
     }
 }

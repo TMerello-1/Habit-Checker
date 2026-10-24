@@ -115,6 +115,7 @@ function render() {
   $('#progress-btn').setAttribute('aria-label', `${t('progress')}: ${t('levelLine', { level: p.level, points: r.points, n: p.toNext, next: p.level + 1 })}`);
   setProgress(p);
   renderProgressSheet(r, p);
+  if (androidApp) shareRewards(r, p);
 
   const now = new Date();
   const today = sortToday(onToday(habits, state.completions, now), state.completions, now);
@@ -252,6 +253,18 @@ function allItem(h) {
     commit();
   };
   return li;
+}
+
+// The Android widget shows the level and how many awards of each kind there are; the app's
+// bridge passes this save on to it. Saved only when it changes.
+function shareRewards(r, p) {
+  const count = (unit) => r.badges.filter((b) => b.unit === unit).length;
+  const json = JSON.stringify({ level: p.level, medals: count('day'), trophies: count('week'), wreaths: count('month') });
+  try {
+    if (localStorage.getItem('habit-checker:rewards') !== json) localStorage.setItem('habit-checker:rewards', json);
+  } catch {
+    // Storage full or blocked: the widget just keeps its last line.
+  }
 }
 
 // The level bar. On a level-up it fills to the end first, then starts the new level,

@@ -8,6 +8,8 @@
     <string name="widget_count">%1$d von %2$d erledigt</string>
     <string name="widget_pile">noch %d</string>
     <string name="widget_private">🔒  Private Gewohnheit</string>
+    <string name="widget_level">Level %d</string>
+    <string name="widget_wreaths">Lorbeerkränze</string>
     <string name="channel_name">Erinnerungen an Gewohnheiten</string>
     <string name="reminder_title">%1$s Zeit für: %2$s</string>
     <string name="reminder_title_private">🔒 Zeit für eine private Gewohnheit</string>
