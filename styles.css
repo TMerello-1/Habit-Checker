@@ -155,7 +155,7 @@ h2 small { color: var(--muted); font-weight: normal; margin-left: 6px; }
 .badge-tile.tier-silver { border-color: #a9b1ba; }
 .badge-tile.tier-gold { border-color: #e2b007; }
 .badge-tile.tier-platinum { border-color: #7cc4c0; }
-.badge-tile.tier-diamond { border-color: #6aa7ff; box-shadow: 0 0 0 2px rgba(106, 167, 255, 0.3); }
+.badge-tile.tier-ruby { border-color: #d1104f; box-shadow: 0 0 0 2px rgba(209, 16, 79, 0.25); }
 .badge-tile .streak-bonus { color: var(--accent); font-weight: 600; }
 .badge-tile .badge-emoji { font-size: 28px; }
 .badge-tiles > .muted { grid-column: 1 / -1; }
@@ -471,3 +471,4 @@ a.primary { display: block; text-align: center; text-decoration: none; }
   .empty { padding: 16px 12px; }
   .empty-emoji { font-size: 34px; }
 }
+.award-icon { width: 1.25em; height: 1.25em; vertical-align: -0.3em; }

@@ -63,7 +63,7 @@ test('awards pay more and get a better ring the longer they took', () => {
   assert.equal(awardTier('week', 2), 'silver');
   assert.equal(awardTier('day', 100), 'gold');
   assert.equal(awardTier('month', 6), 'platinum');
-  assert.equal(awardTier('week', 52), 'diamond');
+  assert.equal(awardTier('week', 52), 'ruby');
 });
 
 test('editing keeps id, createdAt and streak', () => {

@@ -216,7 +216,8 @@
     <button type="button" id="menu-install" class="menu-item" data-i18n="install" hidden>📲 Install app</button>
     <button type="button" id="menu-move" class="menu-item" data-i18n="moveDataItem">📦 Move your data</button>
     <button type="button" id="menu-feedback" class="menu-item" data-i18n="feedbackItem" hidden>💬 Send feedback</button>
-    <button type="button" id="menu-help" class="menu-item" data-i18n="helpItem">❓ Help &amp; what's new</button>
+    <button type="button" id="menu-help" class="menu-item" data-i18n="helpItem">❓ Help</button>
+    <button type="button" id="menu-news" class="menu-item" data-i18n="newsItem">✨ What's new</button>
     <button type="button" id="menu-inbox" class="menu-item" data-i18n="inboxItem" hidden>📬 Feedback inbox</button>
   </dialog>
 
@@ -257,7 +258,15 @@
     </div>
     <div class="help">
       <div id="help-topics"></div>
-      <h2 id="whats-new-title" data-i18n="whatsNew">What's new</h2>
+    </div>
+  </dialog>
+
+  <dialog id="news-dialog" class="sheet" aria-labelledby="news-title">
+    <div class="sheet-head">
+      <h2 id="news-title" data-i18n="whatsNew">What's new</h2>
+      <button type="button" class="close" data-close aria-label="Close" data-i18n-aria-label="close">✕</button>
+    </div>
+    <div class="help">
       <div id="whats-new-list"></div>
     </div>
   </dialog>

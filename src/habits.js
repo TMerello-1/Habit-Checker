@@ -94,13 +94,13 @@ export function longestStreak(habit, completions, today = new Date()) {
 }
 
 // Streak awards. The habit's streak unit picks the kind: medals for days, trophies for
-// weeks, laurels for months, each with milestones in that unit. An award pays about what a
+// weeks, laurel wreaths for months, each with milestones in that unit. An award pays about what a
 // medal for the same stretch of time pays, so keeping a weekly or monthly streak is worth
 // as much as a daily one.
 export const AWARDS = {
-  day: { emoji: '🏅', steps: [[3, 25], [7, 50], [14, 100], [30, 200], [60, 350], [100, 500], [200, 750], [365, 1000]] },
-  week: { emoji: '🏆', steps: [[1, 50], [2, 100], [4, 200], [8, 350], [12, 500], [26, 750], [52, 1000]] },
-  month: { emoji: '🏵️', steps: [[1, 200], [2, 350], [3, 500], [6, 750], [9, 875], [12, 1000], [24, 1500]] },
+  day: { steps: [[3, 25], [7, 50], [14, 100], [30, 200], [60, 350], [100, 500], [200, 750], [365, 1000]] },
+  week: { steps: [[1, 50], [2, 100], [4, 200], [8, 350], [12, 500], [26, 750], [52, 1000]] },
+  month: { steps: [[1, 200], [2, 350], [3, 500], [6, 750], [9, 875], [12, 1000], [24, 1500]] },
 };
 export const POINTS_PER_CHECKIN = 10;
 export const POINTS_PER_BEATEN = 5;
@@ -116,7 +116,7 @@ export function awardPoints(unit, milestone) {
 }
 
 // The colour ring around an award, from how many days its streak took.
-const TIERS = [[360, 'diamond'], [180, 'platinum'], [60, 'gold'], [14, 'silver'], [0, 'bronze']];
+const TIERS = [[360, 'ruby'], [180, 'platinum'], [60, 'gold'], [14, 'silver'], [0, 'bronze']];
 
 export function awardTier(unit, milestone) {
   const days = milestone * DAYS_PER[unit];
