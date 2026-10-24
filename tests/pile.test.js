@@ -70,7 +70,8 @@ test('beating the stack earns 5 bonus points a round, up to one extra stack a pe
   assert.equal(rewards([weekly], { p: repeat('2026-10-12', 10) }, day(12)).beaten, 3);
   const farmed = rewards([weekly], { p: repeat('2026-10-12', 30) }, day(12));
   assert.equal(farmed.beaten, 7);
-  assert.equal(farmed.points, 30 * 10 + 7 * 5);
+  // Plus the bonus for clearing the week and the 1-week trophy.
+  assert.equal(farmed.points, 30 * 10 + 7 * 5 + 30 + 50);
   // Each week counts on its own.
   assert.equal(rewards([weekly], { p: [...repeat('2026-10-05', 8), ...repeat('2026-10-12', 9)] }, day(12)).beaten, 3);
 });
@@ -118,8 +119,25 @@ test('every round earns points', () => {
 test('badges and friends count a pile habit\'s periods', () => {
   const c = { p: Array.from({ length: 21 }, (_, i) => `2026-10-${String(5 + i).padStart(2, '0')}`) };
   const r = rewards([weekly], c, day(25));
-  assert.deepEqual(r.badges.map((b) => [b.milestone, b.unit]), [[3, 'week']]);
+  assert.deepEqual(r.badges.map((b) => [b.milestone, b.unit]), [[1, 'week'], [2, 'week']]);
   assert.equal(sharedStats([weekly], c, day(25)).streak, 21);
+});
+
+test('cleared weeks earn a bonus, and a week streak multiplies the next weeks', () => {
+  const dates = (m, d0, n) => Array.from({ length: n }, (_, i) => `2026-${m}-${String(d0 + i).padStart(2, '0')}`);
+  // Weeks from Oct 5, 12 and 19 cleared: the second and third build on a streak of 7 days or more, so ×1.5.
+  const c = { p: [...dates(10, 5, 7), ...dates(10, 12, 7), ...dates(10, 19, 7)] };
+  const r = rewards([{ ...weekly, createdAt: '2026-10-05' }], c, day(25));
+  assert.equal(r.points, (70 + 30) + 2 * 1.5 * (70 + 30) + 50 + 100);
+});
+
+test('a month streak earns laurels', () => {
+  const monthly = { ...pushups, pile: 'month', stack: 4, createdAt: '2026-09-01' };
+  const c = { p: [...repeat('2026-09-10', 4), ...repeat('2026-10-10', 4)] };
+  const r = rewards([monthly], c, day(31));
+  assert.deepEqual(r.badges.map((b) => [b.milestone, b.unit]), [[1, 'month'], [2, 'month']]);
+  // October builds on a 30-day streak: ×2.
+  assert.equal(r.points, (40 + 120) + 2 * (40 + 120) + 200 + 350);
 });
 
 test('reminders: weekly piles every day while rounds are left, daily piles on planned days', () => {

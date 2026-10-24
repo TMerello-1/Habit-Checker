@@ -7,6 +7,11 @@
 
 export const CHANGELOG = [
   {
+    v: 33, date: '2026-10-24', notable: true,
+    en: 'Long streaks pay off more: check-ins earn ×1.5 from a 7-day streak, ×2 from 30 days and ×3 from 100. Daily habits earn 🏅 medals, weekly stacks 🏆 trophies and monthly stacks 🏵️ laurels, each worth more the longer it took, with a bronze to diamond ring. Clearing a whole week or month earns a bonus, and each level costs a bit more than the last.',
+    de: 'Lange Serien lohnen sich mehr: Abhaken bringt ×1,5 ab einer 7-Tage-Serie, ×2 ab 30 Tagen und ×3 ab 100. Tägliche Gewohnheiten bringen 🏅 Medaillen, Wochenstapel 🏆 Pokale und Monatsstapel 🏵️ Lorbeeren, jeweils mehr wert, je länger es gedauert hat, mit einem Ring von Bronze bis Diamant. Eine ganz geschaffte Woche oder ein Monat bringt einen Bonus, und jedes Level kostet etwas mehr als das davor.',
+  },
+  {
     v: 32, date: '2026-10-24', notable: true,
     en: 'Pile habits are now stacks of rounds: say how many rounds a day, week or month starts with (say 30 a week) instead of picking days. Starting partway in gives a smaller first stack, and every round beyond the stack earns 5 bonus points.',
     de: 'Stapel-Gewohnheiten sind jetzt Rundenstapel: Leg fest, mit wie vielen Runden ein Tag, eine Woche oder ein Monat startet (zum Beispiel 30 pro Woche), statt Tage auszuwählen. Wer mittendrin anfängt, bekommt einen kleineren ersten Stapel, und jede Runde über den Stapel hinaus bringt 5 Bonuspunkte.',

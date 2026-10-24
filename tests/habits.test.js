@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bestBadges, currentStreak, editHabit, levelProgress, longestStreak, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday } from '../src/habits.js';
+import { awardPoints, awardTier, bestBadges, currentStreak, editHabit, levelProgress, longestStreak, missedYesterday, openToday, rewards, scheduleKind, sharedStats, sortToday, streakBonus, streakMultiplier } from '../src/habits.js';
 
 // 2026-10-12 is a Monday.
 const day = (d) => new Date(2026, 9, d);
@@ -33,12 +33,37 @@ test('longest streak survives a later break', () => {
   assert.equal(longestStreak(daily, c, day(12)), 4);
 });
 
-test('rewards give points per check-in plus milestone badges', () => {
+test('rewards give points per check-in plus milestone medals', () => {
   const c = { a: ['2026-10-10', '2026-10-11', '2026-10-12'] };
   const r = rewards([daily], c, day(12));
   assert.equal(r.checkins, 3);
-  assert.equal(r.badges.length, 1);
-  assert.equal(r.points, 3 * 10 + 50);
+  assert.deepEqual(r.badges, [{ habitId: 'a', milestone: 3, unit: 'day' }]);
+  assert.equal(r.points, 3 * 10 + 25);
+});
+
+test('longer streaks multiply the points of each check-in', () => {
+  assert.equal(streakMultiplier(6), 1);
+  assert.equal(streakMultiplier(7), 1.5);
+  assert.equal(streakMultiplier(30), 2);
+  assert.equal(streakMultiplier(100), 3);
+  // Oct 1-9 in a row: the 8th and 9th check-ins build on a 7- and 8-day streak.
+  const days = Array.from({ length: 9 }, (_, i) => `2026-10-0${i + 1}`);
+  assert.equal(rewards([daily], { a: days }, day(9)).points, 7 * 10 + 2 * 15 + 25 + 50);
+  assert.equal(streakBonus(daily, { a: days }, day(9)), 1.5);
+  // A missed day starts the multiplier over.
+  assert.equal(rewards([daily], { a: [...days, '2026-10-11'] }, day(11)).points, 7 * 10 + 2 * 15 + 10 + 25 + 50);
+});
+
+test('awards pay more and get a better ring the longer they took', () => {
+  assert.equal(awardPoints('day', 3), 25);
+  assert.equal(awardPoints('day', 365), 1000);
+  assert.equal(awardPoints('week', 12), 500);
+  assert.equal(awardPoints('month', 24), 1500);
+  assert.equal(awardTier('day', 7), 'bronze');
+  assert.equal(awardTier('week', 2), 'silver');
+  assert.equal(awardTier('day', 100), 'gold');
+  assert.equal(awardTier('month', 6), 'platinum');
+  assert.equal(awardTier('week', 52), 'diamond');
 });
 
 test('editing keeps id, createdAt and streak', () => {
@@ -91,21 +116,23 @@ test('sharedStats gives friends the level and the best streak, leaving private h
   assert.deepEqual(sharedStats([], {}, today), { level: 1, streak: 0 });
 });
 
-test('level progress counts points within the current level', () => {
-  assert.deepEqual(levelProgress(510), { level: 3, into: 10, toNext: 240 });
-  assert.deepEqual(levelProgress(500), { level: 3, into: 0, toNext: 250 });
-  assert.deepEqual(levelProgress(0), { level: 1, into: 0, toNext: 250 });
+test('each level costs 50 points more than the last', () => {
+  assert.deepEqual(levelProgress(0), { level: 1, into: 0, size: 250, toNext: 250 });
+  assert.deepEqual(levelProgress(510), { level: 2, into: 260, size: 300, toNext: 40 });
+  assert.deepEqual(levelProgress(550), { level: 3, into: 0, size: 350, toNext: 350 });
 });
 
-test('best badges keep the highest milestone per habit and the next one', () => {
+test('best badges keep the highest milestone per habit and kind, and the next one', () => {
   const badges = [
     { habitId: 'a', milestone: 3, unit: 'day' }, { habitId: 'a', milestone: 7, unit: 'day' },
-    { habitId: 'b', milestone: 3, unit: 'week' }, { habitId: 'c', milestone: 100, unit: 'day' },
+    { habitId: 'b', milestone: 2, unit: 'week' }, { habitId: 'c', milestone: 365, unit: 'day' },
+    { habitId: 'b', milestone: 14, unit: 'day' },
   ];
   assert.deepEqual(bestBadges(badges), [
     { habitId: 'a', milestone: 7, unit: 'day', next: 14 },
-    { habitId: 'b', milestone: 3, unit: 'week', next: 7 },
-    { habitId: 'c', milestone: 100, unit: 'day', next: null },
+    { habitId: 'b', milestone: 2, unit: 'week', next: 4 },
+    { habitId: 'c', milestone: 365, unit: 'day', next: null },
+    { habitId: 'b', milestone: 14, unit: 'day', next: 30 },
   ]);
 });
 
