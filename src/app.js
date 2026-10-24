@@ -9,7 +9,7 @@ import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
 import { addThread, chatFor, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
-import { AWARDS, awardPoints, awardTier, bestBadges, currentStreak, daysThrough, editHabit, isDone, isOpen, levelProgress, MAX_STACK, missedYesterday, onToday, openToday, periodEnd, periodStack, pileCount, rewards, scheduleKind, sharedStats, sortToday, milestones, streakBonus, streakUnit, suggestedStack } from './habits.js';
+import { awardPoints, awardTier, bestBadges, currentStreak, daysThrough, editHabit, isDone, isOpen, levelProgress, MAX_STACK, missedYesterday, onToday, openToday, periodEnd, periodStack, pileCount, rewards, scheduleKind, sharedStats, sortToday, milestones, streakBonus, streakUnit, suggestedStack } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
@@ -85,11 +85,11 @@ function applyToggle(habit, date = new Date(), undoable = false) {
   const msg = level > levelBefore
     ? t('levelUp', { level })
     : milestone
-      ? t('milestoneToast', { award: AWARDS[unit].emoji, m: milestone, name: habit.name, unit: t(`unit_${unit}`), n: awardPoints(unit, milestone) })
+      ? t('milestoneToast', { m: milestone, name: habit.name, unit: t(`unit_${unit}`), n: awardPoints(unit, milestone) })
       : bonus
         ? t('beatToast', { n, streak: after })
         : t('pointsToast', { n, streak: after });
-  toast(msg, undoable ? { label: t('undo'), run: () => (habit.pile ? removeRound(habit, date) : applyToggle(habit, date)) } : null);
+  toast(msg, undoable ? { label: t('undo'), run: () => (habit.pile ? removeRound(habit, date) : applyToggle(habit, date)) } : null, milestone && level === levelBefore ? AWARD_ICON[unit] : '');
 }
 
 // Takes back one round of a pile habit logged on `date`.
@@ -277,6 +277,10 @@ function setProgress(p) {
 
 const BADGE_TEXT = { day: 'badgeDays', week: 'badgeWeeks', month: 'badgeMonths' };
 
+// Monthly awards are a laurel wreath, drawn here since there's no emoji for one.
+const LAUREL = '<svg class="award-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.89 18.92A8 8 0 0 1 7.76 4.22M13.11 18.92A8 8 0 0 0 16.24 4.22" fill="none" stroke="#3d7323" stroke-width="1" stroke-linecap="round"/><g fill="#5b9f30"><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(9.93 18.73) rotate(-117)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(9.93 18.73) rotate(-33)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.07 17.30) rotate(-94)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.07 17.30) rotate(-10)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.00 14.88) rotate(-71)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.00 14.88) rotate(13)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.04 11.84) rotate(-48)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.04 11.84) rotate(36)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.35 8.66) rotate(-25)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(4.35 8.66) rotate(59)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.87 5.86) rotate(-2)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(5.87 5.86) rotate(82)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(7.76 4.22) rotate(58)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(14.07 18.73) rotate(33)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(14.07 18.73) rotate(117)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.93 17.30) rotate(10)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.93 17.30) rotate(94)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.00 14.88) rotate(-13)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.00 14.88) rotate(71)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.96 11.84) rotate(-36)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.96 11.84) rotate(48)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.65 8.66) rotate(-59)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(19.65 8.66) rotate(25)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(18.13 5.86) rotate(-82)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(18.13 5.86) rotate(2)"/><path d="M0 0Q1.8 -2.2 0 -4.4Q-1.8 -2.2 0 0Z" transform="translate(16.24 4.22) rotate(-58)"/></g><path d="M12 18.6l-2.6 1.4.5 2.6 2.1-1.6 2.1 1.6.5-2.6z" fill="#d9a400"/></svg>';
+const AWARD_ICON = { day: '🏅', week: '🏆', month: LAUREL };
+
 // Awards live in the Progress sheet (tap the level in the header): one tile per habit and
 // kind of award with its best one, ringed in its tier's colour, the next one to aim for and
 // the points multiplier its current streak gives.
@@ -290,7 +294,7 @@ function renderProgressSheet(r, p) {
     li.className = `badge-tile tier-${tier}`;
     li.innerHTML = `
       <span class="badge-emoji" aria-hidden="true">${esc(habit.private ? '🔒' : habit.emoji)}</span>
-      <b>${AWARDS[b.unit].emoji} ${esc(t(BADGE_TEXT[b.unit], { m: b.milestone }))}</b>
+      <b>${AWARD_ICON[b.unit]} ${esc(t(BADGE_TEXT[b.unit], { m: b.milestone }))}</b>
       <small>${esc(t(`tier_${tier}`))} · ${esc(b.next ? t('nextBadge', { m: b.next }) : t('allBadges'))}</small>
       ${x > 1 ? `<small class="streak-bonus">🔥 ${esc(t('streakBonus', { x: x.toLocaleString(getLang()) }))}</small>` : ''}`;
     return li;
@@ -345,12 +349,13 @@ function esc(s) {
 
 // A short message at the bottom. `action` ({ label, run }) adds a button, like Undo,
 // and keeps the toast up a little longer.
-function toast(msg, action = null) {
+// `icon` is trusted markup (an award emoji or the laurel drawing) shown before the text.
+function toast(msg, action = null, icon = '') {
   const el = $('#toast');
   // An open modal dialog sits in the top layer, above anything in the page, so
   // the toast moves into it to stay visible.
   (document.querySelector('dialog[open]') ?? document.body).append(el);
-  $('#toast-text').textContent = msg;
+  $('#toast-text').innerHTML = `${icon ? `${icon} ` : ''}${esc(msg)}`;
   const btn = $('#toast-action');
   btn.hidden = !action;
   el.classList.toggle('actionable', Boolean(action));

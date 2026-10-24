@@ -8,8 +8,8 @@
 export const CHANGELOG = [
   {
     v: 33, date: '2026-10-24', notable: true,
-    en: 'Long streaks pay off more: check-ins earn ×1.5 from a 7-day streak, ×2 from 30 days and ×3 from 100. Daily habits earn 🏅 medals, weekly stacks 🏆 trophies and monthly stacks 🏵️ laurels, each worth more the longer it took, with a bronze to ruby ring. Clearing a whole week or month earns a bonus, and each level costs a bit more than the last.',
-    de: 'Lange Serien lohnen sich mehr: Abhaken bringt ×1,5 ab einer 7-Tage-Serie, ×2 ab 30 Tagen und ×3 ab 100. Tägliche Gewohnheiten bringen 🏅 Medaillen, Wochenstapel 🏆 Pokale und Monatsstapel 🏵️ Lorbeeren, jeweils mehr wert, je länger es gedauert hat, mit einem Ring von Bronze bis Rubin. Eine ganz geschaffte Woche oder ein Monat bringt einen Bonus, und jedes Level kostet etwas mehr als das davor.',
+    en: 'Long streaks pay off more: check-ins earn ×1.5 from a 7-day streak, ×2 from 30 days and ×3 from 100. Daily habits earn 🏅 medals, weekly stacks 🏆 trophies and monthly stacks laurel wreaths, each worth more the longer it took, with a bronze to ruby ring. Clearing a whole week or month earns a bonus, and each level costs a bit more than the last.',
+    de: 'Lange Serien lohnen sich mehr: Abhaken bringt ×1,5 ab einer 7-Tage-Serie, ×2 ab 30 Tagen und ×3 ab 100. Tägliche Gewohnheiten bringen 🏅 Medaillen, Wochenstapel 🏆 Pokale und Monatsstapel Lorbeerkränze, jeweils mehr wert, je länger es gedauert hat, mit einem Ring von Bronze bis Rubin. Eine ganz geschaffte Woche oder ein Monat bringt einen Bonus, und jedes Level kostet etwas mehr als das davor.',
   },
   {
     v: 32, date: '2026-10-24', notable: true,

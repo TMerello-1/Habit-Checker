@@ -471,3 +471,4 @@ a.primary { display: block; text-align: center; text-decoration: none; }
   .empty { padding: 16px 12px; }
   .empty-emoji { font-size: 34px; }
 }
+.award-icon { width: 1.25em; height: 1.25em; vertical-align: -0.3em; }
