@@ -23,7 +23,7 @@ test('a private habit\'s reminder does not show its name', () => {
 });
 
 test('a weekly pile habit is reminded on its last day while it owes rounds', () => {
-  const pile = { ...habit, days: [1, 2, 3, 4, 5], pile: 'week' };
+  const pile = { ...habit, days: [1, 2, 3, 4, 5], pile: 'week', stack: 5 };
   const sunday9am = new Date(2026, 9, 18, 9, 0);
   assert.equal(dueReminders({ habits: [pile], completions: {}, notified: {} }, sunday9am).length, 1);
   const done = { a: Array(5).fill('2026-10-16') };

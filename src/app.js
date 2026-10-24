@@ -9,7 +9,7 @@ import { FRIENDS_SERVER } from './config.js';
 import { acceptInvite, answerThread, createInvite, createProfile, deleteFeedback, deleteProfile, fetchBackup, fetchFeedback, fetchMe, fetchThread, friendsEnabled, loadFriends, previewInvite, reactToFeedback, registerAdminDevice, removeFriend, replyToFeedback, saveFriends, sendFeedback, sendStats, ServerError, threadDevice, uploadBackup } from './friends.js';
 import { addThread, chatFor, FEEDBACK_KEY, feedbackStatus, filterFeedback, markSeen, newestFromSenders, parseThreads, REACTIONS, statusCounts, unreadTotal, updateThread } from './feedback.js';
 import { addDays, dateKey } from './dates.js';
-import { bestBadges, currentStreak, editHabit, isDone, isOpen, levelProgress, missedYesterday, onToday, openToday, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit } from './habits.js';
+import { bestBadges, currentStreak, daysThrough, editHabit, isDone, isOpen, levelProgress, MAX_STACK, missedYesterday, onToday, openToday, periodEnd, periodStack, pileCount, rewards, scheduleKind, sharedStats, sortToday, STREAK_MILESTONES, streakUnit, suggestedStack } from './habits.js';
 import { getLang, pickLang, setLang, t } from './i18n.js';
 import { installPlatform, installSteps } from './install.js';
 import { initials, profileName, randomName } from './names.js';
@@ -70,20 +70,23 @@ function applyToggle(habit, date = new Date(), undoable = false) {
   const list = state.completions[habit.id] || [];
   const checking = habit.pile || !list.includes(key);
   const before = currentStreak(habit, state.completions);
-  const levelBefore = rewards(state.habits, state.completions).level;
+  const { level: levelBefore, beaten: beatenBefore } = rewards(state.habits, state.completions);
   state.completions[habit.id] = checking ? [...list, key] : list.filter((d) => d !== key);
   if (habit.pile) undoable = true;
   if (checking && key === dateKey()) dismissReminder(habit.id).catch(() => {});
   const after = currentStreak(habit, state.completions);
-  const level = rewards(state.habits, state.completions).level;
+  const { level, beaten } = rewards(state.habits, state.completions);
   commit();
   if (!checking) return;
+  const bonus = beaten > beatenBefore;
   const milestone = after > before && STREAK_MILESTONES.find((m) => m === after);
   const msg = level > levelBefore
     ? t('levelUp', { level })
     : milestone
       ? t('milestoneToast', { m: milestone, name: habit.name, unit: t(`unit_${streakUnit(habit)}`) })
-      : t('pointsToast', { streak: after });
+      : bonus
+        ? t('beatToast', { streak: after })
+        : t('pointsToast', { streak: after });
   toast(msg, undoable ? { label: t('undo'), run: () => (habit.pile ? removeRound(habit, date) : applyToggle(habit, date)) } : null);
 }
 
@@ -202,11 +205,14 @@ function todayItem(h, date) {
   return li;
 }
 
-// "3 to go this week", "Pile 0" or "1 ahead", plus the reminder time.
+// "12 to go this week · about 2 a day", "Stack cleared" or "Beaten by 1", plus the
+// reminder time.
 function pileText(h, date) {
   const n = pileCount(h, state.completions, date);
+  const left = daysThrough(date, periodEnd(h.pile, date));
+  const pace = n > 0 && left > 1 && t('pilePace', { n: Math.ceil(n / left) });
   const text = n > 0 ? t(`pileToGo_${h.pile}`, { n }) : n < 0 ? t('pileAhead', { n: -n }) : t('pileClear');
-  return h.time ? `${text} · ${h.time}` : text;
+  return [text, pace, h.time].filter(Boolean).join(' · ');
 }
 const lateChecked = new Set();
 
@@ -214,7 +220,10 @@ function scheduleText(h) {
   const kind = scheduleKind(h.days);
   const order = [1, 2, 3, 4, 5, 6, 0].filter((d) => h.days.includes(d));
   const days = kind ? t(kind === 'weekdays' ? 'weekdaysPreset' : kind) : order.map((d) => t('weekdays')[d]).join(' ');
-  const parts = [days, h.pile && t(`pileShort_${h.pile}`), h.time].filter(Boolean);
+  // Weekly and monthly piles have no days, just their stack.
+  const plain = h.pile === 'week' || h.pile === 'month';
+  const stack = h.pile && h.stack && t(`stackShort_${h.pile}`, { n: h.stack });
+  const parts = [!plain && days, stack || (h.pile && t(`pileShort_${h.pile}`)), h.time].filter(Boolean);
   return parts.join(' · ');
 }
 
@@ -422,9 +431,11 @@ function startEdit(habit) {
   form.elements.time.value = habit.time;
   form.elements.private.checked = Boolean(habit.private);
   form.elements.pile.value = habit.pile || '';
+  form.elements.stack.value = habit.pile ? habit.stack || suggestedStack(habit.days, habit.pile) : '';
   pickEmoji(habit.emoji);
   $('#emoji-custom').value = EMOJI.includes(habit.emoji) ? '' : habit.emoji;
   setFormMode();
+  showPileFields();
   render();
   habitSheet.showModal();
 }
@@ -444,7 +455,34 @@ function resetForm() {
   $('#emoji-custom').value = '';
   showPicker(false);
   setFormMode();
+  showPileFields();
 }
+
+// The stack field shows while the pile is on. Weekly and monthly piles don't use the days,
+// so those hide. The hint says what the first period asks for when it starts partway in.
+function showPileFields() {
+  const pile = form.elements.pile.value;
+  $('#stack-field').hidden = !pile;
+  form.querySelector('.days').hidden = pile === 'week' || pile === 'month';
+  const hint = $('#pile-hint');
+  hint.hidden = !pile;
+  const n = Math.round(Number(form.elements.stack.value));
+  const old = state.habits.find((h) => h.id === editing);
+  let text = t('pileHint');
+  if (pile && pile !== 'day' && n >= 1 && (!old || old.pile !== pile)) {
+    const first = periodStack({ pile, stack: n, days: [], createdAt: dateKey() }, new Date());
+    if (first < n) text = t(`stackFirst_${pile}`, { first, n });
+  }
+  hint.textContent = text;
+}
+
+form.elements.pile.onchange = () => {
+  const pile = form.elements.pile.value;
+  const days = [...form.querySelectorAll('[name=days]:checked')].map((c) => Number(c.value));
+  if (pile && !form.elements.stack.value) form.elements.stack.value = suggestedStack(days, pile);
+  showPileFields();
+};
+form.elements.stack.oninput = showPileFields;
 
 function setFormMode() {
   $('#form-title').textContent = t(editing ? 'editHabit' : 'newHabit');
@@ -471,15 +509,21 @@ habitSheet.addEventListener('close', () => {
 form.onsubmit = (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
-  const days = f.getAll('days').map(Number);
-  if (!days.length) return toast(t('pickDay'));
+  const pile = f.get('pile') || undefined;
+  const plain = pile === 'week' || pile === 'month';
+  const checked = f.getAll('days').map(Number);
+  if (!checked.length && !plain) return toast(t('pickDay'));
+  const days = checked.length ? checked : PRESETS.daily;
+  const stack = Math.round(Number(f.get('stack')));
+  if (pile && !(stack >= 1 && stack <= MAX_STACK)) return toast(t('pickStack', { max: MAX_STACK }));
   const fields = {
     name: f.get('name').trim(),
     emoji: f.get('emoji').trim() || '✅',
     days,
     time: f.get('time') || '',
     private: f.has('private'),
-    pile: f.get('pile') || undefined,
+    pile,
+    stack: pile ? stack : undefined,
   };
   const i = state.habits.findIndex((h) => h.id === editing);
   let id;

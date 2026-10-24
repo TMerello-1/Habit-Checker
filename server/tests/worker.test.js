@@ -10,7 +10,7 @@ const mondayNY = new Date('2026-10-12T12:03:00Z');
 const record = (extra = {}) => ({ timeZone: 'America/New_York', habits: [habit], done: {}, notified: {}, ...extra });
 
 test('a weekly pile habit is reminded by what is left on its pile', () => {
-  const pile = { ...habit, days: [1, 2, 3, 4, 5], pile: 'week' };
+  const pile = { ...habit, days: [1, 2, 3, 4, 5], pile: 'week', stack: 5 };
   // Sunday 2026-10-18, 08:03 in New York: the week's last day, nothing done.
   const sundayNY = new Date('2026-10-18T12:03:00Z');
   assert.deepEqual(dueHabits(record({ habits: [pile] }), sundayNY).map((h) => h.id), ['a']);
